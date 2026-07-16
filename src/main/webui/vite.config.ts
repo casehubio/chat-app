@@ -6,6 +6,7 @@ const BLOCKS = path.resolve(__dirname, '../../../../blocks-ui/packages');
 const CHANNEL_ACTIVITY = path.resolve(__dirname, '../../../../blocks-ui/components/channel-activity');
 
 export default defineConfig({
+  root: 'src',
   resolve: {
     alias: [
       { find: '@casehubio/blocks-ui-channel-activity', replacement: path.resolve(CHANNEL_ACTIVITY, 'src') },

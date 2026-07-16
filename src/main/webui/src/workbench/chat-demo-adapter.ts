@@ -127,14 +127,14 @@ export class ChatDemoAdapter {
     if (op.op === 'snapshot') {
       this.members = (op.rows ?? []).map(r => ({
         channelId: r[1] as string, memberId: r[2] as string,
-        displayName: r[3] as string, role: 'PARTICIPANT' as const,
-        actorType: (r[4] as ActorType) || 'HUMAN' as const,
+        displayName: r[3] as string,
+        role: (r[4] as ChannelMember['role']) || 'PARTICIPANT',
       }));
     } else if (op.op === 'append' && op.rows) {
       this.members = [...this.members, ...op.rows.map(r => ({
         channelId: r[1] as string, memberId: r[2] as string,
-        displayName: r[3] as string, role: 'PARTICIPANT' as const,
-        actorType: (r[4] as ActorType) || 'HUMAN' as const,
+        displayName: r[3] as string,
+        role: (r[4] as ChannelMember['role']) || 'PARTICIPANT',
       }))];
     } else if (op.op === 'remove' && op.key) {
       const sep = op.key.indexOf(':');
@@ -155,10 +155,13 @@ export class ChatDemoAdapter {
       this.presence = (op.rows ?? []).map(r => ({
         memberId: r[0] as string,
         status: r[1] as PresenceState['status'],
+        lastSeenAt: (r[2] as string) || undefined,
       }));
     } else if (op.op === 'replace' && op.row) {
       this.presence = this.presence.map(p =>
-        p.memberId === op.row![0] ? { ...p, status: op.row![1] as PresenceState['status'] } : p
+        p.memberId === op.row![0]
+          ? { ...p, status: op.row![1] as PresenceState['status'], lastSeenAt: (op.row![2] as string) || undefined }
+          : p
       );
     }
   }

@@ -264,7 +264,7 @@ class ChatWebSocketTest {
             @SuppressWarnings("unchecked")
             final var rows = (List<List<String>>) presence.get("rows");
             for (final List<String> row : rows) {
-                assertThat(row).hasSize(2);
+                assertThat(row).hasSize(3);
                 assertThat(row.get(1)).isIn("ONLINE", "OFFLINE", "AWAY", "DND", "UNKNOWN");
             }
         }

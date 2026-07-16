@@ -1,31 +1,7 @@
 package io.casehub.chat.app;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Optional;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import jakarta.enterprise.context.ApplicationScoped;
-
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.sqlite.SQLiteConfig;
-import org.sqlite.SQLiteDataSource;
-
 import io.casehub.connectors.chat.model.Channel;
 import io.casehub.connectors.chat.model.ChatChannelRef;
 import io.casehub.connectors.chat.model.ChatContent;
@@ -35,6 +11,28 @@ import io.casehub.connectors.chat.model.MemberRef;
 import io.casehub.connectors.chat.model.PresenceStatus;
 import io.casehub.connectors.chat.model.ReceivedMessage;
 import io.casehub.connectors.chat.ref.ChatBackend;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.enterprise.context.ApplicationScoped;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.sqlite.SQLiteConfig;
+import org.sqlite.SQLiteDataSource;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @ApplicationScoped
 public class SqliteChatBackend implements ChatBackend {
@@ -131,18 +129,38 @@ public class SqliteChatBackend implements ChatBackend {
                     )""");
             stmt.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS presence (
-                        member_id   TEXT PRIMARY KEY,
-                        status      TEXT NOT NULL
+                        member_id      TEXT PRIMARY KEY,
+                        status         TEXT NOT NULL,
+                        last_active_at TEXT
                     )""");
             stmt.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS members (
                         channel_id   TEXT NOT NULL,
                         member_id    TEXT NOT NULL,
                         display_name TEXT,
+                        role         TEXT NOT NULL DEFAULT 'PARTICIPANT',
+                        last_read_at TEXT,
                         PRIMARY KEY (channel_id, member_id)
                     )""");
+            addColumnIfMissing(conn, "members", "role", "TEXT NOT NULL DEFAULT 'PARTICIPANT'");
+            addColumnIfMissing(conn, "members", "last_read_at", "TEXT");
+            addColumnIfMissing(conn, "presence", "last_active_at", "TEXT");
         } catch (final SQLException e) {
             throw new RuntimeException("Failed to create SQLite schema", e);
+        }
+    }
+
+    private void addColumnIfMissing(final Connection conn, final String table, final String column, final String type) {
+        try (var rs = conn.createStatement().executeQuery("PRAGMA table_info(" + table + ")")) {
+            while (rs.next()) {
+                if (column.equals(rs.getString("name"))) return;
+            }
+        } catch (final SQLException e) {
+            return;
+        }
+        try (var stmt = conn.createStatement()) {
+            stmt.executeUpdate("ALTER TABLE " + table + " ADD COLUMN " + column + " " + type);
+        } catch (final SQLException ignored) {
         }
     }
 
@@ -330,9 +348,10 @@ public class SqliteChatBackend implements ChatBackend {
     public void setPresence(final MemberRef member, final PresenceStatus status) {
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "INSERT OR REPLACE INTO presence (member_id, status) VALUES (?, ?)")) {
+                     "INSERT OR REPLACE INTO presence (member_id, status, last_active_at) VALUES (?, ?, ?)")) {
             ps.setString(1, member.id());
             ps.setString(2, status.name());
+            ps.setString(3, TS_FORMAT.format(Instant.now()));
             ps.executeUpdate();
         } catch (final SQLException e) {
             throw new RuntimeException("Failed to set presence", e);
@@ -402,6 +421,89 @@ public class SqliteChatBackend implements ChatBackend {
         }
         return result;
     }
+
+    public String memberRole(final ChatChannelRef channel, final MemberRef member) {
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT role FROM members WHERE channel_id = ? AND member_id = ?")) {
+            ps.setString(1, channel.id());
+            ps.setString(2, member.id());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString(1);
+                }
+            }
+        } catch (final SQLException e) {
+            throw new RuntimeException("Failed to query member role", e);
+        }
+        return "PARTICIPANT";
+    }
+
+    public void setMemberRole(final ChatChannelRef channel, final MemberRef member, final String role) {
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "UPDATE members SET role = ? WHERE channel_id = ? AND member_id = ?")) {
+            ps.setString(1, role);
+            ps.setString(2, channel.id());
+            ps.setString(3, member.id());
+            ps.executeUpdate();
+        } catch (final SQLException e) {
+            throw new RuntimeException("Failed to set member role", e);
+        }
+    }
+
+    public void markRead(final ChatChannelRef channel, final MemberRef member, final Instant timestamp) {
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "UPDATE members SET last_read_at = ? WHERE channel_id = ? AND member_id = ?")) {
+            ps.setString(1, TS_FORMAT.format(timestamp));
+            ps.setString(2, channel.id());
+            ps.setString(3, member.id());
+            ps.executeUpdate();
+        } catch (final SQLException e) {
+            throw new RuntimeException("Failed to mark read", e);
+        }
+    }
+
+    public Instant lastReadAt(final ChatChannelRef channel, final MemberRef member) {
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT last_read_at FROM members WHERE channel_id = ? AND member_id = ?")) {
+            ps.setString(1, channel.id());
+            ps.setString(2, member.id());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    final String ts = rs.getString(1);
+                    if (ts != null) {
+                        return Instant.parse(ts);
+                    }
+                }
+            }
+        } catch (final SQLException e) {
+            throw new RuntimeException("Failed to query last read", e);
+        }
+        return null;
+    }
+
+    public Instant lastActiveAt(final MemberRef member) {
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT last_active_at FROM presence WHERE member_id = ?")) {
+            ps.setString(1, member.id());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    final String ts = rs.getString(1);
+                    if (ts != null) {
+                        return Instant.parse(ts);
+                    }
+                }
+            }
+        } catch (final SQLException e) {
+            throw new RuntimeException("Failed to query last active", e);
+        }
+        return null;
+    }
+
 
     private Channel channelFromRow(final ResultSet rs) throws SQLException {
         return new Channel(

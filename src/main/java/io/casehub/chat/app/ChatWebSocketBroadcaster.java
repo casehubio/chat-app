@@ -49,11 +49,13 @@ public class ChatWebSocketBroadcaster {
             Map.of("id", "membershipId", "name", "Membership", "type", "LABEL"),
             Map.of("id", "channelId", "name", "Channel", "type", "LABEL"),
             Map.of("id", "memberId", "name", "Member", "type", "LABEL"),
-            Map.of("id", "displayName", "name", "Display Name", "type", "LABEL"));
+            Map.of("id", "displayName", "name", "Display Name", "type", "LABEL"),
+            Map.of("id", "role", "name", "Role", "type", "LABEL"));
 
     private static final List<Map<String, Object>> PRESENCE_COLUMNS = List.of(
             Map.of("id", "memberId", "name", "Member", "type", "LABEL"),
-            Map.of("id", "status", "name", "Status", "type", "LABEL"));
+            Map.of("id", "status", "name", "Status", "type", "LABEL"),
+            Map.of("id", "lastActiveAt", "name", "Last Active", "type", "DATE"));
 
     private static final List<Map<String, Object>> REACTION_COLUMNS = List.of(
             Map.of("id", "messageId", "name", "Message ID", "type", "LABEL"),
@@ -64,6 +66,9 @@ public class ChatWebSocketBroadcaster {
 
     @Inject
     ChatPlatform chatPlatform;
+
+    @Inject
+    SqliteChatBackend chatBackend;
 
     void addConnection(final WebSocketConnection connection) {
         connections.add(connection);
@@ -99,7 +104,8 @@ public class ChatWebSocketBroadcaster {
         for (final Channel ch : channels) {
             for (final Member m : chatPlatform.members().list(ch.ref())) {
                 final String membershipId = ch.ref().id() + ":" + m.ref().id();
-                members.add(List.of(membershipId, ch.ref().id(), m.ref().id(), m.displayName()));
+                final String role = chatBackend.memberRole(ch.ref(), m.ref());
+                members.add(List.of(membershipId, ch.ref().id(), m.ref().id(), m.displayName(), role));
             }
         }
 
@@ -123,7 +129,9 @@ public class ChatWebSocketBroadcaster {
         final var presenceRows = uniqueMembers.stream()
                 .map(memberRef -> {
                     final PresenceStatus status = chatPlatform.presence().of(memberRef);
-                    return List.<Object>of(memberRef.id(), status.name());
+                    final java.time.Instant lastActive = chatBackend.lastActiveAt(memberRef);
+                    final String lastActiveStr = lastActive != null ? lastActive.toString() : "";
+                    return List.<Object>of(memberRef.id(), status.name(), lastActiveStr);
                 })
                 .toList();
 
@@ -170,7 +178,7 @@ public class ChatWebSocketBroadcaster {
                 "seq", String.valueOf(seq.incrementAndGet()),
                 "columns", PRESENCE_COLUMNS,
                 "key", member.id(),
-                "row", List.of(member.id(), status.name())));
+                "row", List.of(member.id(), status.name(), java.time.Instant.now().toString())));
     }
 
     void broadcastMemberAppend(final String channelId, final Member member) {
@@ -180,7 +188,7 @@ public class ChatWebSocketBroadcaster {
                 "op", "append",
                 "seq", String.valueOf(seq.incrementAndGet()),
                 "columns", MEMBER_COLUMNS,
-                "rows", List.of(List.of(membershipId, channelId, member.ref().id(), member.displayName()))));
+                "rows", List.of(List.of(membershipId, channelId, member.ref().id(), member.displayName(), "PARTICIPANT"))));
     }
 
     void broadcastMemberRemove(final String channelId, final MemberRef member) {

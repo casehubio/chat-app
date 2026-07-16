@@ -51,7 +51,7 @@ public class ChatResource {
     SecurityIdentity identity;
 
     @Inject
-    ChatBackend chatBackend;
+    SqliteChatBackend chatBackend;
 
     // --- Channels ---
 
@@ -233,6 +233,17 @@ public class ChatResource {
         } catch (final IllegalArgumentException e) {
             throw new jakarta.ws.rs.BadRequestException("Invalid status: " + request.status());
         }
+        return Response.ok().build();
+    }
+
+    // --- Read tracking ---
+
+    @PUT
+    @Path("/channels/{channelId}/read")
+    public Response markRead(@PathParam("channelId") final String channelId) {
+        final var channelRef = new ChatChannelRef(channelId);
+        final var memberRef = new MemberRef(identity.getPrincipal().getName());
+        chatBackend.markRead(channelRef, memberRef, java.time.Instant.now());
         return Response.ok().build();
     }
 

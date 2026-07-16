@@ -241,8 +241,10 @@ describe('QhorusWorkbenchElement', () => {
       mockWsInstances = [];
       (globalThis as any).WebSocket = class MockWebSocket {
         url: string;
+        onopen: ((e: any) => void) | null = null;
         onmessage: ((e: any) => void) | null = null;
-        onclose: (() => void) | null = null;
+        onclose: ((e: any) => void) | null = null;
+        onerror: ((e: any) => void) | null = null;
         readyState = 1;
         close = vi.fn();
         constructor(url: string) {
@@ -275,6 +277,7 @@ describe('QhorusWorkbenchElement', () => {
       await el.updateComplete;
 
       const ws = mockWsInstances[mockWsInstances.length - 1];
+      ws.onopen?.({});
       const applyOpSpy = vi.spyOn(el._adapter, 'applyOp');
 
       const opData = { op: 'snapshot', dataset: 'channels', rows: [['ch-1', 'general', '']] };
@@ -292,9 +295,10 @@ describe('QhorusWorkbenchElement', () => {
 
       const initialCount = mockWsInstances.length;
       const ws = mockWsInstances[mockWsInstances.length - 1];
-      ws.onclose?.();
+      ws.onopen?.({});
+      ws.onclose?.({ code: 1006 });
 
-      vi.advanceTimersByTime(3000);
+      vi.advanceTimersByTime(1000);
       expect(mockWsInstances.length).toBe(initialCount + 1);
       vi.useRealTimers();
     });
@@ -306,6 +310,7 @@ describe('QhorusWorkbenchElement', () => {
       await el.updateComplete;
 
       const ws = mockWsInstances[mockWsInstances.length - 1];
+      ws.onopen?.({});
       expect(() => ws.onmessage?.({ data: 'not-json{{{' })).not.toThrow();
     });
   });
@@ -497,8 +502,10 @@ describe('QhorusWorkbenchElement', () => {
     let mockWsInstances: any[] = [];
     (globalThis as any).WebSocket = class MockWebSocket {
       url: string;
+      onopen: ((e: any) => void) | null = null;
       onmessage: ((e: any) => void) | null = null;
-      onclose: (() => void) | null = null;
+      onclose: ((e: any) => void) | null = null;
+      onerror: ((e: any) => void) | null = null;
       readyState = 1;
       close = vi.fn();
       constructor(url: string) {
@@ -513,7 +520,8 @@ describe('QhorusWorkbenchElement', () => {
     await el.updateComplete;
 
     const ws = mockWsInstances[mockWsInstances.length - 1];
-    ws.onclose?.();
+    ws.onopen?.({});
+    ws.onclose?.({ code: 1006 });
 
     el.remove();
 

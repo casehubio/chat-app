@@ -2,6 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ChatDemoAdapter } from './chat-demo-adapter.js';
 import { SwipeController } from './swipe-controller.js';
+import { ConnectionController } from './connection-controller.js';
 import {
   ChannelEventTopics,
   ChannelFeedElement,
@@ -48,8 +49,10 @@ export class QhorusWorkbenchElement extends LitElement {
     onClose: () => { this._drawerOpen = null; },
     isOpenQuery: (side) => side === 'left' ? this._drawerOpen === 'channel' : this._drawerOpen === 'member',
   });
-  private _ws?: WebSocket;
-  private _reconnectTimeout?: ReturnType<typeof setTimeout>;
+  private _connection = new ConnectionController(this, {
+    onMessage: (op) => this._adapter.applyOp(op as any),
+    onStateChange: () => this.requestUpdate(),
+  });
   private _mqTablet?: MediaQueryList;
   private _mqDesktop?: MediaQueryList;
 
@@ -179,6 +182,28 @@ export class QhorusWorkbenchElement extends LitElement {
     @media (prefers-reduced-motion: reduce) {
       .drawer, .backdrop { transition-duration: 0ms !important; }
     }
+    /* --- connection banner --- */
+    .connection-banner {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px;
+      font-size: 12px; font-weight: 500;
+      flex-shrink: 0;
+    }
+    .connection-banner.reconnecting {
+      background: var(--pages-warning-3, #fef3c7);
+      color: var(--pages-warning-11, #92400e);
+    }
+    .connection-banner.disconnected {
+      background: var(--pages-danger-3, #fee2e2);
+      color: var(--pages-danger-11, #991b1b);
+    }
+    .connection-spinner {
+      width: 12px; height: 12px;
+      border: 2px solid currentColor; border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   `;
 
   configure(props: Record<string, unknown>) {
@@ -191,7 +216,11 @@ export class QhorusWorkbenchElement extends LitElement {
     super.connectedCallback();
     this._adapter.onChange(this._onDataChange);
     this.addEventListener('pages-event', this._onChatEvent as EventListener);
-    this._connect();
+    const token = getToken();
+    if (token && this.endpoint) {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      this._connection.connect(`${proto}//${location.host}${this.endpoint}`, token);
+    }
     this._setupMediaQueries();
     this._initTheme();
   }
@@ -217,8 +246,7 @@ export class QhorusWorkbenchElement extends LitElement {
     super.disconnectedCallback();
     this._adapter.offChange(this._onDataChange);
     this.removeEventListener('pages-event', this._onChatEvent as EventListener);
-    if (this._reconnectTimeout) clearTimeout(this._reconnectTimeout);
-    this._ws?.close();
+    this._connection.disconnect();
     this._mqTablet?.removeEventListener('change', this._onMediaChange);
     this._mqDesktop?.removeEventListener('change', this._onMediaChange);
   }
@@ -258,27 +286,6 @@ export class QhorusWorkbenchElement extends LitElement {
   }
 
   private _closeDrawer() { this._drawerOpen = null; }
-
-  private _connect() {
-    const token = getToken();
-    if (!token || !this.endpoint) return;
-
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const url = `${proto}//${location.host}${this.endpoint}?token=${token}`;
-    this._ws = new WebSocket(url);
-
-    this._ws.onmessage = (e) => {
-      try {
-        const parsed = JSON.parse(e.data);
-        const ops = Array.isArray(parsed) ? parsed : [parsed];
-        for (const op of ops) this._adapter.applyOp(op);
-      } catch { /* malformed message */ }
-    };
-
-    this._ws.onclose = () => {
-      this._reconnectTimeout = setTimeout(() => this._connect(), 3000);
-    };
-  }
 
   private _onDataChange = (dataset: string) => {
     this._channels = this._adapter.channels;
@@ -423,8 +430,23 @@ export class QhorusWorkbenchElement extends LitElement {
     </channel-member-panel>`;
   }
 
+  private _renderConnectionBanner() {
+    const state = this._connection.state;
+    if (state === 'connected' || state === 'connecting') return nothing;
+    if (state === 'reconnecting') {
+      return html`<div class="connection-banner reconnecting">
+        <span class="connection-spinner"></span>
+        Reconnecting (attempt ${this._connection.attempt})...
+      </div>`;
+    }
+    return html`<div class="connection-banner disconnected">
+      Connection lost
+    </div>`;
+  }
+
   private _renderChat() {
     return html`
+      ${this._renderConnectionBanner()}
       <channel-feed
         .messages=${this._filteredMessages()}
         .reactions=${this._filteredReactions()}
