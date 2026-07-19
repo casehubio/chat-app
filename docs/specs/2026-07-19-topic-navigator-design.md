@@ -4,8 +4,14 @@
 **Issue:** casehubio/chat-app#6
 **Status:** Draft
 **Depends on:** casehubio/connectors#61 (Phase 1, CLOSED), casehubio/qhorus#328 (Topic field, CLOSED)
-**Cross-repo:** casehubio/blocks-ui (channel-activity package — topic bar, feed view modes, input selector)
-**Parent spec:** `connectors/specs/2026-07-07-qhorus-chat-ui-design.md` §2, §6 Phase 4
+**Cross-repo:** casehubio/blocks-ui (channel-activity package):
+  - `types.ts`: new `QhorusTopic` type, `TOPIC_STATES`, `topicId` on `QhorusMessage`
+  - `events.ts`: new event topics (SELECT_TOPIC, VIEW_MODE, CREATE_TOPIC, RESOLVE_TOPIC, REOPEN_TOPIC, ARCHIVE_TOPIC, RENAME_TOPIC, MERGE_TOPIC), `topicId` on `SendMessagePayload`
+  - New component: `channel-topic-bar`
+  - `channel-feed`: `viewMode` and `topics` props
+  - `channel-input`: topic selector UI
+  - Requires blocks-ui version publish before chat-app can consume
+**Parent issues:** casehubio/qhorus#328 (topic field epic), casehubio/connectors#61 §Phase 4
 
 ---
 
@@ -34,6 +40,8 @@ Add topic support end-to-end: a `topics` entity in the backend with full lifecyc
 
 Topics are first-class entities with IDs, not denormalized strings on messages. Topic is a mutable relationship (rename, merge) — normalizing it avoids O(n) message rewrites on rename and keeps the WebSocket protocol efficient.
 
+**Relationship to qhorus#329:** The qhorus API model (`io.casehub.qhorus.api.message.Message`) defines `String topic` as an implicit, string-based field — topics emerge from usage, rename is a bulk message rewrite, and lifecycle state lives in a separate `TopicState` table. This spec deliberately supersedes that model for the chat-app context. The normalized `topics` table provides O(1) rename, first-class merge semantics, and integrated lifecycle — capabilities the string-based model cannot efficiently support. The qhorus `Message.topic` field continues to carry the display name for wire compatibility; the chat-app's local `topic_id` FK is the structural reference. A follow-up issue should be filed on qhorus to evolve the platform model toward normalized topics if other connectors need these capabilities.
+
 ```sql
 CREATE TABLE topics (
     id          TEXT PRIMARY KEY,
@@ -49,11 +57,21 @@ CREATE TABLE topics (
 );
 ```
 
-Messages gain a `topic_id` column:
+Messages gain a `topic_id` column referencing the topics table.
 
-```sql
-ALTER TABLE messages ADD COLUMN topic_id TEXT NOT NULL REFERENCES topics(id);
-```
+### Migration strategy
+
+The `NOT NULL` constraint on `topic_id` cannot be added directly to a table with existing rows (SQLite does not support `ALTER COLUMN`). The migration proceeds in order:
+
+1. Create the `topics` table (schema above).
+2. For each existing channel, insert a "General" default topic row.
+3. `ALTER TABLE messages ADD COLUMN topic_id TEXT REFERENCES topics(id)` — nullable initially.
+4. Backfill: `UPDATE messages SET topic_id = (SELECT id FROM topics WHERE channel_id = messages.channel_id AND name = 'General')`.
+5. Recreate the `messages` table with `topic_id TEXT NOT NULL REFERENCES topics(id)` and copy data (SQLite table rebuild pattern, as used in `createSchema()` for similar constraints).
+
+The `addColumnIfMissing()` utility already handles idempotent column additions. Step 5 uses the same table-rebuild pattern the codebase uses for constraint changes.
+
+**Seed database:** The seed `.db` file (copied from classpath in `seedIfNeeded()`) must be regenerated with the new schema and pre-populated topics. The §6 seed data defines the topic content; the seed `.db` must include both the `topics` table rows and `topic_id` values on all message rows.
 
 ### Default topic
 
@@ -82,11 +100,12 @@ Single row update: `UPDATE topics SET name = ?, updated_at = ? WHERE id = ?`. Ze
 
 ### Merge
 
-Merge topic A into topic B:
+Merge topic A into topic B (steps 1–2 in a single database transaction, matching the `deleteChannel()` pattern of `conn.setAutoCommit(false)` / `commit()` / `rollback()`):
 
 1. `UPDATE messages SET topic_id = B.id WHERE topic_id = A.id` — rewrites message assignments
 2. `UPDATE topics SET state = 'MERGED', merged_into = B.id WHERE id = A.id`
-3. Broadcast: `remove` op for A on topics dataset, `replace` op for B (updated message count), channel message snapshot
+3. Commit transaction.
+4. Broadcast (after commit): `remove` op for A on topics dataset, `replace` op for B (updated message count), channel message snapshot
 
 Constraints:
 - Merge target must be non-MERGED (no recursive chains)
@@ -133,7 +152,7 @@ record PostMessageRequest(String text, String messageType, String actorType,
 - Else if `topic` name is provided: resolve name → topic_id. If name doesn't exist, create a new ACTIVE topic.
 - If neither is provided: use the channel's default ("General") topic_id.
 - If the resolved topic is RESOLVED or ARCHIVED: reopen it to ACTIVE.
-- Store `topic_id` on the message row.
+- Store `topic_id` on the message row via `storeEnrichedFields()` — the same pattern used for `messageType`, `actorType`, `correlationId`, and `target` (see `ChatResource.postMessage()` line 110). The `ChatBackend` SPI (`storeMessage()` / `ReceivedMessage`) is not modified — topic is a chat-app concern managed at the resource layer, not a connector SPI concern. `storeEnrichedFields()` gains a `topicId` parameter.
 
 **`POST /api/channels/{channelId}/messages/{messageId}/replies`:**
 - If `topicId` or `topic` is provided: use it (same resolution as above).
@@ -147,12 +166,16 @@ New `topics` dataset added to the snapshot:
 TOPIC_COLUMNS: [topicId, channelId, name, state, messageCount, latestActivityTs, createdAt]
 ```
 
-Message rows: index 8 changes from hardcoded `"General"` to the message's `topic_id` (UUID).
+**Snapshot ordering:** `buildSnapshot()` must send the `topics` dataset before `messages`. The adapter resolves `topic_id` → topic name using the topics array, so topics must be available before message rows are processed. Current snapshot order (channels → messages → members → presence → reactions → commitments) becomes: channels → **topics** → messages → members → presence → reactions → commitments.
+
+**Message row[8] semantic change:** Index 8 changes from hardcoded `"General"` (human-readable string, see `messageToRow()` line 294) to the message's `topic_id` (UUID). This changes `QhorusMessage.topic` from wire-delivered to adapter-derived — the adapter resolves the UUID to a display name via the topics array. The `chat-demo-adapter.ts` `_toMessage()` method (currently `topic: (row[8] as string) || 'General'` at line 100) must be updated to map `row[8]` as `topicId` and resolve the name from the topics array. Unknown `topicId` values fall back to empty string for topic name.
 
 Broadcast ops for topic changes:
 - `topics` / `append` — new topic created
 - `topics` / `replace` — rename, state change, or message count update
 - `topics` / `remove` — topic merged (absorbed into another)
+
+**`deleteChannel` cascade update:** The existing transactional cascade in `SqliteChatBackend.deleteChannel()` must include topics. Since `messages.topic_id` references `topics.id`, messages must be deleted before topics. Updated cascade order: artefact_refs → commitments → reactions → messages → **topics** → members → channels.
 
 ---
 
@@ -190,6 +213,8 @@ RENAME_TOPIC: 'channel:rename-topic',       // { channelId, topicId, newName }
 MERGE_TOPIC: 'channel:merge-topic',         // { channelId, sourceTopicId, targetTopicId }
 ```
 
+`SendMessagePayload` gains `topicId?: string` alongside the existing `topic?: string`. When sending a message to an existing topic, `topicId` provides a stable reference that survives renames. When creating a new topic inline, `topic` carries the name. This is a cross-repo change to the blocks-ui `channel-activity` package's `events.ts`.
+
 ### New component: `<channel-topic-bar>`
 
 Horizontal scrollable bar rendered above the channel-feed.
@@ -217,8 +242,8 @@ New props:
 - `topics: QhorusTopic[]` (for topic section headers in Topics mode)
 
 Rendering by mode:
-- **flat** — current behavior unchanged. Chronological, sender-grouped, inline thread expansion.
-- **threaded** — group all messages by root parent chain. Each group renders as a `<channel-thread>`. Messages with no parent and no replies render as standalone single-message entries.
+- **flat** — current behavior unchanged. Chronological order, sender-grouped via `_groupFlat()` (consecutive messages from the same sender within 2 minutes are collapsed into one group). Roots with replies render as `<channel-thread>` inline within their sender group; roots without replies render as standalone `<channel-message>`. This is the existing semi-threaded rendering.
+- **threaded** — **no sender grouping**. Each root-with-replies renders as its own `<channel-thread>` regardless of sender adjacency. Messages with no parent and no replies render as standalone single-message entries. Sort order: by root message timestamp. The key difference from flat mode is removing sender-based visual grouping — each conversation thread stands independently, making it easier to scan distinct discussions without the visual merging that sender grouping creates.
 - **topics** — group messages by `topicId`, render topic section headers (name + state badge + message count). Chronological within each section. ACTIVE topics first, RESOLVED dimmed, ARCHIVED dimmed + italic.
 
 Filtering is NOT the feed's responsibility — the workbench filters messages before passing them. In Topics mode with "All" selected, the feed receives all messages and groups by topic. With a specific topic selected, it receives only that topic's messages.
@@ -296,9 +321,11 @@ New event handlers in `_onChatEvent`:
 
 | Condition | Topic bar | Topic selector in input | View mode toggle |
 |-----------|-----------|------------------------|-----------------|
-| Channel has 1 topic ("General" only) | Hidden | Hidden | Hidden |
+| Channel has 1 topic ("General" only) | Hidden | Hidden (but see below) | Hidden |
 | Channel has 2+ non-MERGED topics | Visible | Visible | Visible |
-| All topics except General are MERGED | Hidden | Hidden | Hidden |
+| All topics except General are MERGED | Hidden | Hidden (but see below) | Hidden |
+
+**Topic creation escape hatch:** When the full topic selector is hidden (single-topic channel), the `channel-input` renders a subtle "New topic" affordance — a `+` icon button adjacent to the send button. Clicking it opens an inline name input to create a topic and assign the current message to it. This prevents the UX dead end where humans cannot create the first non-General topic. Once the topic is created and the channel has 2+ topics, the full topic bar and selector become visible via progressive disclosure. The `+` button is not rendered when the full topic selector is already visible (no duplication).
 
 **Channel switch:** `_selectedTopicId` resets to `null` (All). `_viewMode` persists (user preference).
 
