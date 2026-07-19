@@ -430,4 +430,115 @@ class ChatResourceTest {
                .then().statusCode(200).body("size()", is(3));
     }
 
+    @Test
+    void createTopic_returns200WithId() {
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+               .body(Map.of("name", "deployment-pipeline"))
+               .post("/api/channels/" + channelId + "/topics")
+               .then().statusCode(200)
+               .body("name", is("deployment-pipeline"))
+               .body("id", notNullValue());
+    }
+
+    @Test
+    void createTopic_duplicateName_returns409() {
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+               .body(Map.of("name", "dup-topic"))
+               .post("/api/channels/" + channelId + "/topics")
+               .then().statusCode(200);
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+               .body(Map.of("name", "dup-topic"))
+               .post("/api/channels/" + channelId + "/topics")
+               .then().statusCode(409);
+    }
+
+    @Test
+    void createTopic_emptyName_returns400() {
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+               .body(Map.of("name", ""))
+               .post("/api/channels/" + channelId + "/topics")
+               .then().statusCode(400);
+    }
+
+    @Test
+    void createTopic_generalReserved_returns409() {
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+               .body(Map.of("name", "General"))
+               .post("/api/channels/" + channelId + "/topics")
+               .then().statusCode(409);
+    }
+
+    @Test
+    void listTopics_includesDefaultGeneral() {
+        var topics = given().auth().oauth2(token)
+                            .get("/api/channels/" + channelId + "/topics")
+                            .then().statusCode(200)
+                            .extract().body().as(List.class);
+        assertThat(topics).isNotEmpty();
+    }
+
+    @Test
+    void updateTopic_rename() {
+        String topicId = given().auth().oauth2(token).contentType(ContentType.JSON)
+                                .body(Map.of("name", "old-name"))
+                                .post("/api/channels/" + channelId + "/topics")
+                                .then().statusCode(200)
+                                .extract().path("id");
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+               .body(Map.of("name", "new-name"))
+               .put("/api/channels/" + channelId + "/topics/" + topicId)
+               .then().statusCode(200);
+    }
+
+    @Test
+    void postMessage_withTopicName_createsTopicImplicitly() {
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+               .body(Map.of("text", "hello", "topic", "new-discussion"))
+               .post("/api/channels/" + channelId + "/messages")
+               .then().statusCode(200);
+        var topics = given().auth().oauth2(token)
+                            .get("/api/channels/" + channelId + "/topics")
+                            .then().statusCode(200)
+                            .extract().body().as(List.class);
+        assertThat(topics).hasSizeGreaterThanOrEqualTo(2);
+    }
+
+    @Test
+    void postMessage_noTopic_defaultsToGeneral() {
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+               .body(Map.of("text", "hello"))
+               .post("/api/channels/" + channelId + "/messages")
+               .then().statusCode(200);
+    }
+
+    @Test
+    void postReply_inheritsParentTopic() {
+        String msgId = given().auth().oauth2(token).contentType(ContentType.JSON)
+                              .body(Map.of("text", "root", "topic", "specific-topic"))
+                              .post("/api/channels/" + channelId + "/messages")
+                              .then().statusCode(200)
+                              .extract().path("messageId");
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+               .body(Map.of("text", "reply", "topic", "different-topic"))
+               .post("/api/channels/" + channelId + "/messages/" + msgId + "/replies")
+               .then().statusCode(200);
+    }
+
+    @Test
+    void mergeTopic_returns200() {
+        String sourceId = given().auth().oauth2(token).contentType(ContentType.JSON)
+                                 .body(Map.of("name", "merge-source"))
+                                 .post("/api/channels/" + channelId + "/topics")
+                                 .then().statusCode(200).extract().path("id");
+        String targetId = given().auth().oauth2(token).contentType(ContentType.JSON)
+                                 .body(Map.of("name", "merge-target"))
+                                 .post("/api/channels/" + channelId + "/topics")
+                                 .then().statusCode(200).extract().path("id");
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+               .body(Map.of("targetTopicId", targetId))
+               .post("/api/channels/" + channelId + "/topics/" + sourceId + "/merge")
+               .then().statusCode(200);
+    }
+
+
 }

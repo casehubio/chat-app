@@ -1,6 +1,6 @@
 import type {
-  QhorusMessage, QhorusChannel, Reaction, ChannelMember, PresenceState,
-  MessageType, ActorType, ArtefactRef, CommitmentState,
+  QhorusMessage, QhorusChannel, QhorusTopic, Reaction, ChannelMember, PresenceState,
+  MessageType, ActorType, ArtefactRef, CommitmentState, TopicState,
 } from '@casehubio/blocks-ui-channel-activity';
 import type { CommitmentRecord } from '../types.js';
 
@@ -16,6 +16,7 @@ type ChangeListener = (dataset: string) => void;
 
 export class ChatDemoAdapter {
   channels: QhorusChannel[] = [];
+  topics: QhorusTopic[] = [];
   messages: QhorusMessage[] = [];
   reactions: Reaction[] = [];
   members: ChannelMember[] = [];
@@ -31,6 +32,7 @@ export class ChatDemoAdapter {
   applyOp(op: WsOp) {
     switch (op.dataset) {
       case 'channels': this._applyChannels(op); break;
+      case 'topics': this._applyTopics(op); break;
       case 'messages': this._applyMessages(op); break;
       case 'reactions': this._applyReactions(op); break;
       case 'members': this._applyMembers(op); break;
@@ -58,6 +60,38 @@ export class ChatDemoAdapter {
       semantic: 'APPEND',
       paused: false,
     };
+  }
+
+  private _applyTopics(op: WsOp) {
+    if (op.op === 'snapshot') {
+      this.topics = (op.rows ?? []).map(r => this._toTopic(r));
+    } else if (op.op === 'append' && op.rows) {
+      this.topics = [...this.topics, ...op.rows.map(r => this._toTopic(r))];
+    } else if (op.op === 'replace' && op.row && op.key) {
+      this.topics = this.topics.map(t =>
+        t.id === op.key ? this._toTopic(op.row!) : t
+      );
+    } else if (op.op === 'remove' && op.key) {
+      this.topics = this.topics.filter(t => t.id !== op.key);
+    }
+  }
+
+  private _toTopic(row: unknown[]): QhorusTopic {
+    return {
+      id: row[0] as string,
+      channelId: row[1] as string,
+      name: row[2] as string,
+      state: row[3] as TopicState,
+      messageCount: Number(row[4]) || 0,
+      latestActivityTs: (row[5] as string) || undefined,
+      createdAt: row[6] as string,
+    };
+  }
+
+  private _resolveTopicName(topicId: string | null | undefined): string {
+    if (!topicId) return '';
+    const topic = this.topics.find(t => t.id === topicId);
+    return topic?.name ?? '';
   }
 
   private _applyMessages(op: WsOp) {
@@ -97,7 +131,8 @@ export class ChatDemoAdapter {
       messageType: (row[6] as string as MessageType) || 'EVENT',
       actorType: (row[7] as string as ActorType) || 'HUMAN',
       content: row[4] as string,
-      topic: (row[8] as string) || 'General',
+      topicId: (row[8] as string) || '',
+      topic: this._resolveTopicName(row[8] as string),
       correlationId: (row[9] as string) || undefined,
       inReplyTo: (row[2] as string) || undefined,
       replyCount: 0,

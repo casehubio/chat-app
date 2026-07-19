@@ -26,6 +26,7 @@ const options = {
   alias: {
     "@casehubio/blocks-ui-channel-activity": resolve(CHANNEL_ACTIVITY, "src"),
     "@casehubio/blocks-ui-core": resolve(BLOCKS, "blocks-ui-core"),
+    "@casehubio/pages-primitives": resolve(PAGES, "pages-primitives"),
     "@casehubio/pages-ui-tokens": resolve(PAGES, "pages-ui-tokens"),
     "@casehubio/pages-component": resolve(PAGES, "pages-component"),
     "@casehubio/pages-data": resolve(PAGES, "pages-data"),

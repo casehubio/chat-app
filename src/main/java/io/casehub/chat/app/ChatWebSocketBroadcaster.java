@@ -39,7 +39,7 @@ public class ChatWebSocketBroadcaster {
             Map.of("id", "timestamp", "name", "Timestamp", "type", "DATE"),
             Map.of("id", "messageType", "name", "Type", "type", "LABEL"),
             Map.of("id", "actorType", "name", "Actor", "type", "LABEL"),
-            Map.of("id", "topic", "name", "Topic", "type", "LABEL"),
+            Map.of("id", "topicId", "name", "Topic", "type", "LABEL"),
             Map.of("id", "correlationId", "name", "Correlation", "type", "LABEL"),
             Map.of("id", "artefactRefs", "name", "Artefacts", "type", "LABEL"),
             Map.of("id", "target", "name", "Target", "type", "LABEL"));
@@ -64,6 +64,14 @@ public class ChatWebSocketBroadcaster {
             Map.of("id", "acknowledgedAt", "name", "Acknowledged", "type", "DATE"),
             Map.of("id", "createdAt", "name", "Created", "type", "DATE"),
             Map.of("id", "updatedAt", "name", "Updated", "type", "DATE"));
+    private static final List<Map<String, Object>> TOPIC_COLUMNS = List.of(
+            Map.of("id", "topicId", "name", "Topic ID", "type", "LABEL"),
+            Map.of("id", "channelId", "name", "Channel", "type", "LABEL"),
+            Map.of("id", "name", "name", "Name", "type", "LABEL"),
+            Map.of("id", "state", "name", "State", "type", "LABEL"),
+            Map.of("id", "messageCount", "name", "Messages", "type", "LABEL"),
+            Map.of("id", "latestActivityTs", "name", "Latest", "type", "DATE"),
+            Map.of("id", "createdAt", "name", "Created", "type", "DATE"));
     private final Set<WebSocketConnection> connections = new CopyOnWriteArraySet<>();
     private final AtomicLong               seq         = new AtomicLong(0);
     @Inject
@@ -95,6 +103,18 @@ public class ChatWebSocketBroadcaster {
                                                 ch.description() != null ? ch.description() : "",
                                                 String.valueOf(ch.isPrivate())))
                                         .toList();
+
+        // Topics dataset (before messages — adapter needs topics to resolve topicId)
+        final var topicRows = new java.util.ArrayList<List<Object>>();
+        for (final Channel ch : channels) {
+            for (final var t : chatBackend.listTopics(ch.ref().id())) {
+                topicRows.add(List.of(
+                        t.get("id"), t.get("channelId"), t.get("name"), t.get("state"),
+                        String.valueOf(t.get("messageCount")),
+                        t.get("latestActivityTs") != null ? t.get("latestActivityTs") : "",
+                        t.get("createdAt")));
+            }
+        }
 
         // Messages dataset
         final var messages = new java.util.ArrayList<List<Object>>();
@@ -150,6 +170,8 @@ public class ChatWebSocketBroadcaster {
         return toJson(List.of(
                 Map.of("dataset", "channels", "op", "snapshot", "seq", String.valueOf(seq.incrementAndGet()),
                        "columns", CHANNEL_COLUMNS, "rows", channelRows),
+                Map.of("dataset", "topics", "op", "snapshot", "seq", String.valueOf(seq.incrementAndGet()),
+                       "columns", TOPIC_COLUMNS, "rows", topicRows),
                 Map.of("dataset", "messages", "op", "snapshot", "seq", String.valueOf(seq.incrementAndGet()),
                        "columns", MESSAGE_COLUMNS, "rows", messages),
                 Map.of("dataset", "members", "op", "snapshot", "seq", String.valueOf(seq.incrementAndGet()),
@@ -265,6 +287,47 @@ public class ChatWebSocketBroadcaster {
                            "row", commitmentToRow(c))));
     }
 
+    void broadcastTopicAppend(final String channelId) {
+        final var topics = chatBackend.listTopics(channelId);
+        if (!topics.isEmpty()) {
+            final var latest = topics.get(topics.size() - 1);
+            broadcast(java.util.Map.of(
+                    "dataset", "topics", "op", "append",
+                    "seq", String.valueOf(seq.incrementAndGet()),
+                    "columns", TOPIC_COLUMNS,
+                    "rows", java.util.List.of(topicToRow(latest))));
+        }
+    }
+
+    void broadcastTopicReplace(final String channelId, final String topicId) {
+        chatBackend.listTopics(channelId).stream()
+                   .filter(t -> topicId.equals(t.get("id")))
+                   .findFirst()
+                   .ifPresent(t -> broadcast(java.util.Map.of(
+                           "dataset", "topics", "op", "replace",
+                           "seq", String.valueOf(seq.incrementAndGet()),
+                           "columns", TOPIC_COLUMNS,
+                           "key", topicId,
+                           "row", topicToRow(t))));
+    }
+
+    void broadcastTopicRemove(final String channelId, final String topicId) {
+        broadcast(java.util.Map.of(
+                "dataset", "topics", "op", "remove",
+                "seq", String.valueOf(seq.incrementAndGet()),
+                "columns", TOPIC_COLUMNS,
+                "key", topicId));
+    }
+
+    private java.util.List<Object> topicToRow(final java.util.Map<String, Object> t) {
+        return java.util.List.of(
+                t.get("id"), t.get("channelId"), t.get("name"), t.get("state"),
+                String.valueOf(t.get("messageCount")),
+                t.get("latestActivityTs") != null ? t.get("latestActivityTs") : "",
+                t.get("createdAt"));
+    }
+
+
     private java.util.List<Object> commitmentToRow(final java.util.Map<String, Object> c) {
         return java.util.List.of(
                 c.get("id"), c.get("channel_id"), c.get("state"),
@@ -291,7 +354,7 @@ public class ChatWebSocketBroadcaster {
         final var enriched = chatBackend.getEnrichedFields(msg.messageRef().messageId());
         row.add(enriched.getOrDefault("message_type", "EVENT"));
         row.add(enriched.getOrDefault("actor_type", "HUMAN"));
-        row.add("General");
+        row.add(enriched.getOrDefault("topic_id", ""));
         row.add(enriched.get("correlation_id"));
         row.add(chatBackend.getArtefactRefsJson(msg.messageRef().messageId()));
         row.add(enriched.get("target"));

@@ -17,6 +17,7 @@ export default defineConfig({
       { find: '@casehubio/pages-viz/dist', replacement: path.resolve(PAGES, 'pages-viz/src') },
       { find: '@casehubio/pages-ui-tokens/dist', replacement: path.resolve(PAGES, 'pages-ui-tokens/src') },
       { find: '@casehubio/blocks-ui-core', replacement: path.resolve(BLOCKS, 'blocks-ui-core/src') },
+      { find: '@casehubio/pages-primitives', replacement: path.resolve(PAGES, 'pages-primitives/src') },
       { find: '@casehubio/pages-ui-tokens', replacement: path.resolve(PAGES, 'pages-ui-tokens/src') },
       { find: '@casehubio/pages-component', replacement: path.resolve(PAGES, 'pages-component/src') },
       { find: '@casehubio/pages-data', replacement: path.resolve(PAGES, 'pages-data/src') },

@@ -383,4 +383,94 @@ describe('ChatDemoAdapter', () => {
     });
     expect(adapter.commitments.get('c1')?.state).toBe('OPEN');
   });
+
+  // --- Topics dataset ---
+
+  it('processes topics dataset snapshot', () => {
+    const adapter = new ChatDemoAdapter();
+    adapter.applyOp({
+      op: 'snapshot', dataset: 'topics',
+      rows: [['t1', 'ch1', 'General', 'ACTIVE', '5', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z']],
+    });
+    expect(adapter.topics.length).toBe(1);
+    expect(adapter.topics[0].name).toBe('General');
+    expect(adapter.topics[0].state).toBe('ACTIVE');
+  });
+
+  it('processes topics dataset append', () => {
+    const adapter = new ChatDemoAdapter();
+    adapter.applyOp({
+      op: 'snapshot', dataset: 'topics',
+      rows: [['t1', 'ch1', 'General', 'ACTIVE', '5', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z']],
+    });
+    adapter.applyOp({
+      op: 'append', dataset: 'topics',
+      rows: [['t2', 'ch1', 'deployment', 'ACTIVE', '0', '', '2026-01-01T00:01:00Z']],
+    });
+    expect(adapter.topics.length).toBe(2);
+  });
+
+  it('processes topics dataset replace', () => {
+    const adapter = new ChatDemoAdapter();
+    adapter.applyOp({
+      op: 'snapshot', dataset: 'topics',
+      rows: [['t1', 'ch1', 'General', 'ACTIVE', '5', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z']],
+    });
+    adapter.applyOp({
+      op: 'replace', dataset: 'topics',
+      key: 't1',
+      row: ['t1', 'ch1', 'General', 'RESOLVED', '5', '2026-01-01T00:00:00Z', '2026-01-01T00:01:00Z'],
+    });
+    expect(adapter.topics[0].state).toBe('RESOLVED');
+  });
+
+  it('processes topics dataset remove', () => {
+    const adapter = new ChatDemoAdapter();
+    adapter.applyOp({
+      op: 'snapshot', dataset: 'topics',
+      rows: [
+        ['t1', 'ch1', 'General', 'ACTIVE', '5', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'],
+        ['t2', 'ch1', 'old', 'MERGED', '0', '', '2026-01-01T00:00:00Z'],
+      ],
+    });
+    adapter.applyOp({ op: 'remove', dataset: 'topics', key: 't2' });
+    expect(adapter.topics.length).toBe(1);
+  });
+
+  it('_toMessage maps topicId from row[8] and resolves name', () => {
+    const adapter = new ChatDemoAdapter();
+    adapter.applyOp({
+      op: 'snapshot', dataset: 'topics',
+      rows: [['t1', 'ch1', 'General', 'ACTIVE', '5', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z']],
+    });
+    adapter.applyOp({
+      op: 'snapshot', dataset: 'messages',
+      rows: [['ch1', 'msg1', null, 'alice', 'hello', '2026-01-01T00:00:00Z',
+              'EVENT', 'HUMAN', 't1', null, '[]', null]],
+    });
+    expect(adapter.messages[0].topicId).toBe('t1');
+    expect(adapter.messages[0].topic).toBe('General');
+  });
+
+  it('_toMessage with unknown topicId falls back to empty string', () => {
+    const adapter = new ChatDemoAdapter();
+    adapter.applyOp({
+      op: 'snapshot', dataset: 'messages',
+      rows: [['ch1', 'msg1', null, 'alice', 'hello', '2026-01-01T00:00:00Z',
+              'EVENT', 'HUMAN', 'unknown-id', null, '[]', null]],
+    });
+    expect(adapter.messages[0].topicId).toBe('unknown-id');
+    expect(adapter.messages[0].topic).toBe('');
+  });
+
+  it('onChange fires with "topics" dataset name', () => {
+    const adapter = new ChatDemoAdapter();
+    const listener = vi.fn();
+    adapter.onChange(listener);
+    adapter.applyOp({
+      op: 'snapshot', dataset: 'topics',
+      rows: [['t1', 'ch1', 'General', 'ACTIVE', '5', '', '2026-01-01T00:00:00Z']],
+    });
+    expect(listener).toHaveBeenCalledWith('topics');
+  });
 });
