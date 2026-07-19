@@ -80,9 +80,12 @@ Channel creation auto-creates a "General" topic. Every channel always has at lea
 ### Lifecycle state machine
 
 ```
-ACTIVE  →  RESOLVED  →  ARCHIVED
-  ↑           |
-  +-----------+  (reopen)
+ACTIVE  ←→  RESOLVED  →  ARCHIVED
+  ↑            ↑              |
+  |            +--------------+  (reopen)
+  +---------------------------+  (reopen)
+  |
+  +--→ ARCHIVED  (direct archive)
 
 Any non-default, non-MERGED topic  →  MERGED  (terminal, sets merged_into)
 ```
@@ -93,6 +96,21 @@ Any non-default, non-MERGED topic  →  MERGED  (terminal, sets merged_into)
 | RESOLVED | Visible, dimmed, sorted to end | Yes (reopens to ACTIVE) | "Investigation complete" signal |
 | ARCHIVED | Hidden (visible via toggle) | Yes (reopens to ACTIVE) | Fully hidden from default view |
 | MERGED | Removed | No (source topic absorbed) | Terminal — messages already rewritten to target |
+
+**Valid state transitions** (enforced by `PUT /api/channels/{channelId}/topics/{topicId}`):
+
+| From | To | Valid? | Notes |
+|------|----|--------|-------|
+| ACTIVE | RESOLVED | Yes | Mark investigation complete |
+| ACTIVE | ARCHIVED | Yes | Direct archive without resolving first |
+| RESOLVED | ACTIVE | Yes | Reopen |
+| RESOLVED | ARCHIVED | Yes | Archive after resolution |
+| ARCHIVED | ACTIVE | Yes | Reopen (via PUT or implicit via message post) |
+| ARCHIVED | RESOLVED | No | Must reopen to ACTIVE first |
+| Any | MERGED | No | Merge endpoint only (`POST .../merge`) |
+| Same → Same | — | 200 no-op | Idempotent — avoids race condition errors |
+
+The default topic ("General") cannot transition to ARCHIVED (see §1 Default topic).
 
 ### Rename
 
@@ -229,15 +247,18 @@ Horizontal scrollable bar rendered above the channel-feed.
 - `topics: QhorusTopic[]`
 - `selectedTopicId: string | null` (null = "All")
 - `viewMode: 'flat' | 'threaded' | 'topics'`
-- `showArchived: boolean`
+
+**Internal state:**
+- `_showArchived: boolean = false` — managed locally within the component, not exposed as a prop or event. This is a view filter (which pills are visible), not domain state.
 
 **Renders:**
 - "All" pill (always first, selected when `selectedTopicId` is null)
-- Topic pills sorted: ACTIVE by latest activity descending, then RESOLVED (dimmed) at end, ARCHIVED only if `showArchived`
+- Topic pills sorted: ACTIVE by latest activity descending, then RESOLVED (dimmed) at end, ARCHIVED only if `_showArchived`
 - Each pill: topic name, message count badge, state indicator dot (green/gray/hollow)
 - Selected pill: accent background
+- **"Show archived" toggle** (after the last pill, before view mode toggle): an eye icon button, visible only when the channel has ARCHIVED topics. Click toggles `_showArchived`. When active, ARCHIVED pills appear (dimmed + italic). `aria-pressed` reflects the toggle state.
 - View mode toggle: Flat / Threaded / Topics buttons
-- Context menu on pills (right-click or overflow): Resolve, Reopen, Archive, Rename, Merge into...
+- Context menu on pills: state-dependent actions — ACTIVE: Resolve, Archive, Rename, Merge into...; RESOLVED: Reopen, Archive, Rename, Merge into...; ARCHIVED: Reopen, Rename. Default topic ("General") omits Archive and Merge.
 
 **Accessibility:** `RovingTabindexMixin` for keyboard navigation across pills. `aria-pressed` on selected pill. View mode toggle uses `role="radiogroup"`.
 
@@ -369,9 +390,13 @@ This showcases: progressive disclosure (multi-topic channels show the topic bar)
 - Sort order: ACTIVE by latest activity, RESOLVED dimmed at end, ARCHIVED hidden/shown by toggle
 - Emits `channel:select-topic` on pill click with correct topicId
 - Emits `channel:view-mode` on toggle click
-- Context menu: emits resolve/reopen/archive/rename/merge events with correct payloads
+- Context menu: state-dependent actions — ACTIVE shows Resolve/Archive/Rename/Merge, RESOLVED shows Reopen/Archive/Rename/Merge, ARCHIVED shows Reopen/Rename only
+- Context menu: default topic ("General") omits Archive and Merge
 - Keyboard: arrow keys navigate pills, Enter selects
 - Does not render when topics array has ≤ 1 entry (tested at consumer level)
+- "Show archived" eye icon: hidden when no ARCHIVED topics exist
+- "Show archived" eye icon: visible when ARCHIVED topics exist, click toggles archived pill visibility
+- "Show archived" eye icon: `aria-pressed` reflects toggle state
 
 **`channel-feed` (modified):**
 - Flat mode: existing behavior unchanged (regression suite)
@@ -400,8 +425,8 @@ This showcases: progressive disclosure (multi-topic channels show the topic bar)
 - Topic name uniqueness constraint within channel
 - Merge rewrites message topic_id, sets source MERGED with merged_into
 - Rename updates name only, messages unchanged
-- State transitions enforce valid paths
-- Cannot merge/archive default topic
+- State transitions enforce valid paths: ACTIVE→RESOLVED, ACTIVE→ARCHIVED, RESOLVED→ACTIVE, RESOLVED→ARCHIVED, ARCHIVED→ACTIVE all succeed; ARCHIVED→RESOLVED returns 400; same-state transitions return 200 (no-op)
+- Cannot archive or merge default topic ("General")
 - Cannot merge into MERGED topic
 - Message storage with topic_id FK
 
