@@ -30,8 +30,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -169,6 +167,20 @@ public class SqliteChatBackend implements ChatBackend {
                                    selected_text TEXT,
                                    FOREIGN KEY (message_id) REFERENCES messages(id)
                                )""");
+            stmt.executeUpdate("""
+                               CREATE TABLE IF NOT EXISTS topics (
+                                   id          TEXT PRIMARY KEY,
+                                   channel_id  TEXT NOT NULL,
+                                   name        TEXT NOT NULL,
+                                   state       TEXT NOT NULL DEFAULT 'ACTIVE',
+                                   merged_into TEXT,
+                                   created_at  TEXT NOT NULL,
+                                   updated_at  TEXT NOT NULL,
+                                   UNIQUE(channel_id, name),
+                                   FOREIGN KEY (channel_id) REFERENCES channels(id),
+                                   FOREIGN KEY (merged_into) REFERENCES topics(id)
+                               )""");
+            addColumnIfMissing(conn, "messages", "topic_id", "TEXT");
             addColumnIfMissing(conn, "members", "role", "TEXT NOT NULL DEFAULT 'PARTICIPANT'");
             addColumnIfMissing(conn, "members", "last_read_at", "TEXT");
             addColumnIfMissing(conn, "presence", "last_active_at", "TEXT");
@@ -198,21 +210,30 @@ public class SqliteChatBackend implements ChatBackend {
     @Override
     public Channel createChannel(final String name, final String topic,
                                  final String description, final boolean isPrivate) {
-        final String id = UUID.randomUUID().toString();
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "INSERT INTO channels (id, name, topic, description, is_private) VALUES (?, ?, ?, ?, ?)")) {
-            ps.setString(1, id);
-            ps.setString(2, name);
-            ps.setString(3, topic);
-            ps.setString(4, description);
-            ps.setInt(5, isPrivate ? 1 : 0);
-            ps.executeUpdate();
+        final String now = java.time.Instant.now().toString();
+        final String id  = UUID.randomUUID().toString();
+        try (Connection conn = dataSource.getConnection()) {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO channels (id, name, topic, description, is_private) VALUES (?, ?, ?, ?, ?)")) {
+                ps.setString(1, id);
+                ps.setString(2, name);
+                ps.setString(3, topic);
+                ps.setString(4, description);
+                ps.setInt(5, isPrivate ? 1 : 0);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO topics (id, channel_id, name, state, created_at, updated_at) VALUES (?, ?, 'General', 'ACTIVE', ?, ?)")) {
+                ps.setString(1, UUID.randomUUID().toString());
+                ps.setString(2, id);
+                ps.setString(3, now);
+                ps.setString(4, now);
+                ps.executeUpdate();
+            }
         } catch (final SQLException e) {
             throw new RuntimeException("Failed to create channel", e);
         }
-        return new Channel(new ChatChannelRef(id), name, topic, description, isPrivate);
-    }
+        return new Channel(new ChatChannelRef(id), name, topic, description, isPrivate);}
 
     @Override
     public void deleteChannel(final String channelId) {
@@ -238,6 +259,11 @@ public class SqliteChatBackend implements ChatBackend {
                 }
                 try (PreparedStatement ps = conn.prepareStatement(
                         "DELETE FROM messages WHERE channel_id = ?")) {
+                    ps.setString(1, channelId);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "DELETE FROM topics WHERE channel_id = ?")) {
                     ps.setString(1, channelId);
                     ps.executeUpdate();
                 }
@@ -550,15 +576,16 @@ public class SqliteChatBackend implements ChatBackend {
     public void storeEnrichedFields(final String messageId, final String channelId,
                                     final String messageType, final String actorType,
                                     final String correlationId, final String target,
-                                    final String artefactRefsJson) {
+                                    final String artefactRefsJson, final String topicId) {
         try (Connection conn = dataSource.getConnection()) {
             try (PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE messages SET message_type = ?, actor_type = ?, correlation_id = ?, target = ? WHERE id = ?")) {
+                    "UPDATE messages SET message_type = ?, actor_type = ?, correlation_id = ?, target = ?, topic_id = ? WHERE id = ?")) {
                 ps.setString(1, messageType != null ? messageType : "EVENT");
                 ps.setString(2, actorType != null ? actorType : "HUMAN");
                 ps.setString(3, correlationId);
                 ps.setString(4, target);
-                ps.setString(5, messageId);
+                ps.setString(5, topicId);
+                ps.setString(6, messageId);
                 ps.executeUpdate();
             }
             if (artefactRefsJson != null && !"[]".equals(artefactRefsJson) && !artefactRefsJson.isEmpty()) {
@@ -595,7 +622,7 @@ public class SqliteChatBackend implements ChatBackend {
     public Map<String, Object> getEnrichedFields(final String messageId) {
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT message_type, actor_type, correlation_id, target FROM messages WHERE id = ?")) {
+                     "SELECT message_type, actor_type, correlation_id, target, topic_id FROM messages WHERE id = ?")) {
             ps.setString(1, messageId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -604,14 +631,14 @@ public class SqliteChatBackend implements ChatBackend {
                     map.put("actor_type", rs.getString("actor_type"));
                     map.put("correlation_id", rs.getString("correlation_id"));
                     map.put("target", rs.getString("target"));
+                    map.put("topic_id", rs.getString("topic_id"));
                     return map;
                 }
             }
         } catch (final SQLException e) {
             throw new RuntimeException("Failed to get enriched fields", e);
         }
-        return Map.of();
-    }
+        return Map.of();}
 
     public String getArtefactRefsJson(final String messageId) {
         try (Connection conn = dataSource.getConnection();
@@ -638,6 +665,161 @@ public class SqliteChatBackend implements ChatBackend {
             throw new RuntimeException("Failed to get artefact refs", e);
         }
     }
+
+    public java.util.Map<String, Object> createTopic(final String channelId, final String name) {
+        final String id  = UUID.randomUUID().toString();
+        final String now = java.time.Instant.now().toString();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "INSERT INTO topics (id, channel_id, name, state, created_at, updated_at) VALUES (?, ?, ?, 'ACTIVE', ?, ?)")) {
+            ps.setString(1, id);
+            ps.setString(2, channelId);
+            ps.setString(3, name);
+            ps.setString(4, now);
+            ps.setString(5, now);
+            ps.executeUpdate();
+        } catch (final SQLException e) {
+            throw new RuntimeException("Failed to create topic: " + e.getMessage(), e);
+        }
+        return java.util.Map.of("id", id, "channelId", channelId, "name", name, "state", "ACTIVE", "createdAt", now);
+    }
+
+    public java.util.List<java.util.Map<String, Object>> listTopics(final String channelId) {
+        final var result = new java.util.ArrayList<java.util.Map<String, Object>>();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT t.id, t.channel_id, t.name, t.state, t.merged_into, t.created_at, t.updated_at, " +
+                     "(SELECT COUNT(*) FROM messages m WHERE m.topic_id = t.id) AS message_count, " +
+                     "(SELECT MAX(m.created_at) FROM messages m WHERE m.topic_id = t.id) AS latest_activity " +
+                     "FROM topics t WHERE t.channel_id = ? ORDER BY t.created_at")) {
+            ps.setString(1, channelId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    final var map = new java.util.HashMap<String, Object>();
+                    map.put("id", rs.getString("id"));
+                    map.put("channelId", rs.getString("channel_id"));
+                    map.put("name", rs.getString("name"));
+                    map.put("state", rs.getString("state"));
+                    map.put("merged_into", rs.getString("merged_into"));
+                    map.put("messageCount", rs.getInt("message_count"));
+                    map.put("latestActivityTs", rs.getString("latest_activity"));
+                    map.put("createdAt", rs.getString("created_at"));
+                    result.add(map);
+                }
+            }
+        } catch (final SQLException e) {
+            throw new RuntimeException("Failed to list topics", e);
+        }
+        return result;
+    }
+
+    public java.util.Optional<java.util.Map<String, Object>> findTopicByName(final String channelId, final String name) {
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT id, channel_id, name, state, merged_into, created_at, updated_at FROM topics WHERE channel_id = ? AND name = ?")) {
+            ps.setString(1, channelId);
+            ps.setString(2, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    final var map = new java.util.HashMap<String, Object>();
+                    map.put("id", rs.getString("id"));
+                    map.put("channelId", rs.getString("channel_id"));
+                    map.put("name", rs.getString("name"));
+                    map.put("state", rs.getString("state"));
+                    map.put("merged_into", rs.getString("merged_into"));
+                    return java.util.Optional.of(map);
+                }
+            }
+        } catch (final SQLException e) {
+            throw new RuntimeException("Failed to find topic by name", e);
+        }
+        return java.util.Optional.empty();
+    }
+
+    public java.util.Optional<java.util.Map<String, Object>> findTopicById(final String topicId) {
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT id, channel_id, name, state, merged_into, created_at, updated_at FROM topics WHERE id = ?")) {
+            ps.setString(1, topicId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    final var map = new java.util.HashMap<String, Object>();
+                    map.put("id", rs.getString("id"));
+                    map.put("channelId", rs.getString("channel_id"));
+                    map.put("name", rs.getString("name"));
+                    map.put("state", rs.getString("state"));
+                    map.put("merged_into", rs.getString("merged_into"));
+                    return java.util.Optional.of(map);
+                }
+            }
+        } catch (final SQLException e) {
+            throw new RuntimeException("Failed to find topic by id", e);
+        }
+        return java.util.Optional.empty();
+    }
+
+    public void updateTopic(final String topicId, final String name, final String state) {
+        final String now = java.time.Instant.now().toString();
+        try (Connection conn = dataSource.getConnection()) {
+            if (name != null) {
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE topics SET name = ?, updated_at = ? WHERE id = ?")) {
+                    ps.setString(1, name);
+                    ps.setString(2, now);
+                    ps.setString(3, topicId);
+                    ps.executeUpdate();
+                }
+            }
+            if (state != null) {
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE topics SET state = ?, updated_at = ? WHERE id = ?")) {
+                    ps.setString(1, state);
+                    ps.setString(2, now);
+                    ps.setString(3, topicId);
+                    ps.executeUpdate();
+                }
+            }
+        } catch (final SQLException e) {
+            throw new RuntimeException("Failed to update topic", e);
+        }
+    }
+
+    public void mergeTopic(final String sourceId, final String targetId) {
+        try (Connection conn = dataSource.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE messages SET topic_id = ? WHERE topic_id = ?")) {
+                    ps.setString(1, targetId);
+                    ps.setString(2, sourceId);
+                    ps.executeUpdate();
+                }
+                final String now = java.time.Instant.now().toString();
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE topics SET state = 'MERGED', merged_into = ?, updated_at = ? WHERE id = ?")) {
+                    ps.setString(1, targetId);
+                    ps.setString(2, now);
+                    ps.setString(3, sourceId);
+                    ps.executeUpdate();
+                }
+                conn.commit();
+            } catch (final SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        } catch (final SQLException e) {
+            throw new RuntimeException("Failed to merge topic", e);
+        }
+    }
+
+    public String getDefaultTopicId(final String channelId) {
+        return findTopicByName(channelId, "General")
+                       .map(t -> (String) t.get("id"))
+                       .orElse(null);
+    }
+
 
     public void createCommitment(final String commitmentId, final String channelId, final String deadline) {
         final String now = TS_FORMAT.format(Instant.now());

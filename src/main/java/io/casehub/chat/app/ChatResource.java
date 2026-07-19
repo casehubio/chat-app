@@ -107,8 +107,9 @@ public class ChatResource {
         } catch (final JsonProcessingException e) {
             throw new RuntimeException(e);
         }
+        final String topicId = chatBackend.getDefaultTopicId(channelId);
         chatBackend.storeEnrichedFields(msg.messageRef().messageId(), channelId,
-                                        msgType, actType, correlationId, request.target(), refsJson);
+                                        msgType, actType, correlationId, request.target(), refsJson, topicId);
         if ("COMMAND".equals(msgType)) {
             chatBackend.createCommitment(msg.messageRef().messageId(), channelId, null);
             broadcaster.broadcastCommitmentAppend(msg.messageRef().messageId(), channelId);
@@ -187,8 +188,9 @@ public class ChatResource {
         } catch (final JsonProcessingException e) {
             throw new RuntimeException(e);
         }
+        final String parentTopicId = (String) parentFields.getOrDefault("topic_id", chatBackend.getDefaultTopicId(channelId));
         chatBackend.storeEnrichedFields(msg.messageRef().messageId(), channelId,
-                                        msgType, actType, correlationId, request.target(), refsJson);
+                                        msgType, actType, correlationId, request.target(), refsJson, parentTopicId);
 
         broadcaster.broadcastMessageAppend(msg);
         return Response.ok(Map.of(
