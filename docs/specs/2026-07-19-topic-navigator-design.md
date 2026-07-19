@@ -109,6 +109,7 @@ Merge topic A into topic B (steps 1–2 in a single database transaction, matchi
 
 Constraints:
 - Merge target must be non-MERGED (no recursive chains)
+- If the merge target is RESOLVED or ARCHIVED: auto-reopen it to ACTIVE before completing the merge. Receiving merged messages is a significant content change — the topic should be visible. This parallels the existing behavior for posting a message to a RESOLVED/ARCHIVED topic.
 - Default topic ("General") cannot be the merge source
 - Merge is not reversible
 
@@ -123,6 +124,11 @@ POST   /api/channels/{channelId}/topics
        Body: { name: string }
        Returns: { id, channelId, name, state, createdAt }
        Creates a new ACTIVE topic. 409 if name already exists in channel.
+       Validation: reject empty/whitespace-only names (400), trim leading/trailing
+       whitespace, max 100 characters after trim (400), "General" is reserved and
+       cannot be created explicitly (409 — the default topic is auto-created with
+       the channel). Same validation applies to implicit topic creation via message post
+       and to rename via PUT.
 
 GET    /api/channels/{channelId}/topics
        Query: ?state=ACTIVE,RESOLVED (optional filter, comma-separated)
@@ -148,15 +154,15 @@ record PostMessageRequest(String text, String messageType, String actorType,
 ```
 
 **`POST /api/channels/{channelId}/messages`:**
-- If `topicId` is provided and valid: use it directly (stable reference, avoids rename race).
-- Else if `topic` name is provided: resolve name → topic_id. If name doesn't exist, create a new ACTIVE topic.
+- If `topicId` is provided: validate that the topic exists AND its `channel_id` matches the `{channelId}` from the URL path. Return 400 if the topic doesn't exist or belongs to a different channel. Use it directly if valid (stable reference, avoids rename race).
+- Else if `topic` name is provided: resolve name → topic_id within the specified channel. If name doesn't exist, create a new ACTIVE topic in this channel. On UNIQUE constraint violation (concurrent creation race), retry the resolve — the topic now exists from the other request's insert.
 - If neither is provided: use the channel's default ("General") topic_id.
 - If the resolved topic is RESOLVED or ARCHIVED: reopen it to ACTIVE.
 - Store `topic_id` on the message row via `storeEnrichedFields()` — the same pattern used for `messageType`, `actorType`, `correlationId`, and `target` (see `ChatResource.postMessage()` line 110). The `ChatBackend` SPI (`storeMessage()` / `ReceivedMessage`) is not modified — topic is a chat-app concern managed at the resource layer, not a connector SPI concern. `storeEnrichedFields()` gains a `topicId` parameter.
 
 **`POST /api/channels/{channelId}/messages/{messageId}/replies`:**
-- If `topicId` or `topic` is provided: use it (same resolution as above).
-- If neither is provided: inherit the parent message's `topic_id`.
+- Always inherits the parent message's `topic_id`. Any `topicId` or `topic` fields in the request body are **ignored**.
+- Rationale: a reply is part of its parent's conversation thread, which belongs to a topic. Allowing cross-topic replies creates inconsistent reply counts when the workbench filters by topic — `replyCount` is computed globally in the adapter but `_separateRootsAndReplies()` only sees the topic-filtered set, causing "3 replies" badges on messages with 0 visible replies. Prohibiting cross-topic replies eliminates this class of bugs at the design level. To continue a discussion in a different topic, send a new root message (not a reply) in the target topic.
 
 ### WebSocket protocol changes
 
@@ -263,7 +269,7 @@ Topic selector UI:
 - Selecting a topic updates the pill
 - Send includes `topicId` (existing topic) or `topic` name (new topic) in `SendMessagePayload`
 
-When replying: inherits parent message's topic by default. The topic pill shows the inherited topic. User can override by clicking the pill.
+When replying: always inherits parent message's topic. The topic pill shows the inherited topic name but is **read-only** (not clickable). This enforces the invariant that replies stay in the parent's topic — see §2 reply endpoint rationale.
 
 ---
 
@@ -379,7 +385,12 @@ This showcases: progressive disclosure (multi-topic channels show the topic bar)
 - Autocomplete lists ACTIVE + RESOLVED topics, excludes ARCHIVED and MERGED
 - "Create new topic" option present in dropdown
 - Send payload includes topicId (existing topic) or topic name (new topic)
-- Reply inherits parent topic, overridable via selector
+- Reply shows inherited topic in read-only pill (not overridable)
+- Escape hatch `+` button: renders when `showTopicSelector` is false
+- Escape hatch `+` button: does NOT render when `showTopicSelector` is true
+- Escape hatch `+` button: click opens inline name input
+- Escape hatch `+` button: submit emits `channel:create-topic` with name and associates current message
+- Escape hatch `+` button: accessible (aria-label, keyboard reachable)
 
 ### chat-app backend (JUnit)
 
@@ -398,8 +409,10 @@ This showcases: progressive disclosure (multi-topic channels show the topic bar)
 - POST message with topic name → resolves to correct topic_id
 - POST message with unknown topic name → creates new topic
 - POST message with no topic → defaults to "General"
-- POST reply → inherits parent topic unless overridden
-- POST reply with explicit different topic → uses specified topic
+- POST reply → always inherits parent topic (explicit topicId/topic in body ignored)
+- POST message with topicId from different channel → 400
+- POST message with concurrent duplicate topic name → upsert succeeds (no 500)
+- Topic name validation: empty → 400, whitespace-only → 400, >100 chars → 400, "General" → 409
 - Message to RESOLVED/ARCHIVED topic → reopens to ACTIVE
 - Topic REST endpoints: create (201/409), list (with state filter), update (rename/state), merge (400 on invalid)
 
