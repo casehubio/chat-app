@@ -77,6 +77,7 @@ public class SqliteChatBackend implements ChatBackend {
 
         createSchema();
         migrateTopics();
+        seedTopicDemoData();
     }
 
     @PreDestroy
@@ -215,6 +216,81 @@ public class SqliteChatBackend implements ChatBackend {
                     "UPDATE messages SET topic_id = (SELECT t.id FROM topics t WHERE t.channel_id = messages.channel_id AND t.name = 'General') WHERE topic_id IS NULL");
         } catch (final SQLException e) {
             throw new RuntimeException("Failed to migrate topics", e);
+        }
+    }
+
+    private void seedTopicDemoData() {
+        try (Connection conn = dataSource.getConnection()) {
+            try (var check = conn.createStatement().executeQuery(
+                    "SELECT COUNT(*) FROM topics WHERE name != 'General'")) {
+                if (check.next() && check.getInt(1) > 0) {return;}
+            }
+            final var channels = new java.util.ArrayList<String[]>();
+            try (var rs = conn.createStatement().executeQuery("SELECT id, name FROM channels")) {
+                while (rs.next()) {channels.add(new String[]{rs.getString(1), rs.getString(2)});}
+            }
+            final String now = java.time.Instant.now().toString();
+            for (final String[] ch : channels) {
+                final String   channelId   = ch[0];
+                final String   channelName = ch[1];
+                final String[] extraTopics;
+                final String   resolvedTopic;
+                if ("case-investigation".equals(channelName)) {
+                    extraTopics   = new String[]{"evidence-review", "timeline-reconstruction", "witness-analysis"};
+                    resolvedTopic = "witness-analysis";
+                } else if ("team-coordination".equals(channelName)) {
+                    extraTopics   = new String[]{"deployment-pipeline", "incident-march"};
+                    resolvedTopic = "incident-march";
+                } else {
+                    extraTopics   = new String[]{"design-feedback"};
+                    resolvedTopic = null;
+                }
+                for (final String topicName : extraTopics) {
+                    final String topicId = UUID.randomUUID().toString();
+                    final String state   = topicName.equals(resolvedTopic) ? "RESOLVED" : "ACTIVE";
+                    try (PreparedStatement ps = conn.prepareStatement(
+                            "INSERT INTO topics (id, channel_id, name, state, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")) {
+                        ps.setString(1, topicId);
+                        ps.setString(2, channelId);
+                        ps.setString(3, topicName);
+                        ps.setString(4, state);
+                        ps.setString(5, now);
+                        ps.setString(6, now);
+                        ps.executeUpdate();
+                    }
+                }
+                final var topicIds = new java.util.ArrayList<String>();
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT id FROM topics WHERE channel_id = ? AND name != 'General' AND state = 'ACTIVE'")) {
+                    ps.setString(1, channelId);
+                    try (var rs = ps.executeQuery()) {
+                        while (rs.next()) {topicIds.add(rs.getString(1));}
+                    }
+                }
+                if (!topicIds.isEmpty()) {
+                    final var msgIds = new java.util.ArrayList<String>();
+                    try (PreparedStatement ps = conn.prepareStatement(
+                            "SELECT id FROM messages WHERE channel_id = ? ORDER BY created_at")) {
+                        ps.setString(1, channelId);
+                        try (var rs = ps.executeQuery()) {
+                            while (rs.next()) {msgIds.add(rs.getString(1));}
+                        }
+                    }
+                    for (int i = 0; i < msgIds.size(); i++) {
+                        if (i >= 2 && i < msgIds.size() - 1) {
+                            final String assignTopicId = topicIds.get((i - 2) % topicIds.size());
+                            try (PreparedStatement ps = conn.prepareStatement(
+                                    "UPDATE messages SET topic_id = ? WHERE id = ?")) {
+                                ps.setString(1, assignTopicId);
+                                ps.setString(2, msgIds.get(i));
+                                ps.executeUpdate();
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (final SQLException e) {
+            throw new RuntimeException("Failed to seed topic demo data", e);
         }
     }
 
