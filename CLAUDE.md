@@ -87,9 +87,9 @@ type: java
 
 ## What This Project Is
 
-Chat workbench application — a runnable chat UI with SQLite-backed persistence, REST/WebSocket endpoints, and a casehub-pages frontend. Consumes `@casehubio/blocks-ui-channel-activity` for the channel components (feed, nav, member panel, input, reactions, threading) and provides the app shell (workbench layout, WebSocket adapter, swipe gestures, auth layer).
+Chat workbench application — a runnable chat UI with qhorus runtime backend (H2 for dev/demo), REST/WebSocket endpoints, and a casehub-pages frontend. Consumes `@casehubio/blocks-ui-channel-activity` for the channel components (feed, nav, member panel, input, reactions, threading) and provides the app shell (workbench layout, WebSocket adapter, swipe gestures, auth layer).
 
-**This is NOT a connector or library.** It is an Integration-tier application that wires together foundation components (connectors chat-spi, pages-auth, blocks-ui-channel-activity) into a runnable chat experience.
+**This is NOT a connector or library.** It is an Integration-tier application that wires together foundation components (qhorus-api, pages-auth, blocks-ui-channel-activity) into a runnable chat experience. The chat-app implements `HumanParticipatingChannelBackend` for outbound WebSocket delivery via the qhorus gateway fan-out pattern.
 
 ---
 

@@ -1,14 +1,5 @@
 package io.casehub.chat.app;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.common.http.TestHTTPResource;
@@ -22,6 +13,15 @@ import jakarta.websocket.EndpointConfig;
 import jakarta.websocket.MessageHandler;
 import jakarta.websocket.Session;
 import org.junit.jupiter.api.Test;
+
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @QuarkusTest
 class ChatWebSocketTest {
@@ -157,40 +157,42 @@ class ChatWebSocketTest {
     @Test
     void appendEventViaPost() throws Exception {
         final var messagesReceived = new ArrayList<String>();
-        final var future = new CompletableFuture<Map<String, Object>>();
+        final var future           = new CompletableFuture<Map<String, Object>>();
         try (Session session = connectAndCaptureMultiple(messagesReceived, future)) {
-            // Wait for initial snapshot
             future.get(5, TimeUnit.SECONDS);
 
-            // Get snapshot seq to compare with append
             final List<Map<String, Object>> snapshots = objectMapper.readValue(messagesReceived.get(0),
-                    new TypeReference<>() {});
+                                                                               new TypeReference<>() {});
             final var messagesSnapshot = snapshots.stream()
-                    .filter(s -> "messages".equals(s.get("dataset")))
-                    .findFirst().orElseThrow();
+                                                  .filter(s -> "messages".equals(s.get("dataset")))
+                                                  .findFirst().orElseThrow();
             final long snapshotSeq = Long.parseLong((String) messagesSnapshot.get("seq"));
 
-            // Post a new message via REST
             final String token = obtainToken("rest-user");
-            RestAssured.given()
-                    .contentType("application/json")
-                    .header("Authorization", "Bearer " + token)
-                    .body(Map.of("text", "append test message"))
-                    .post("/api/channels/general/messages")
-                    .then()
-                    .statusCode(200);
+            String channelId = RestAssured.given()
+                                          .contentType("application/json")
+                                          .header("Authorization", "Bearer " + token)
+                                          .body(Map.of("name", "ws-test-" + System.nanoTime(), "description", "test"))
+                                          .post("/api/channels")
+                                          .then().statusCode(200)
+                                          .extract().path("id");
 
-            // Wait for append event
+            RestAssured.given()
+                       .contentType("application/json")
+                       .header("Authorization", "Bearer " + token)
+                       .body(Map.of("text", "append test message"))
+                       .post("/api/channels/" + channelId + "/messages")
+                       .then()
+                       .statusCode(200);
+
             Thread.sleep(500);
 
-            // Parse all received messages and find append
             Map<String, Object> appendEvent = null;
             for (int i = 1; i < messagesReceived.size(); i++) {
                 final String msg = messagesReceived.get(i);
-                // Message can be a single object or an array
                 if (msg.trim().startsWith("[")) {
                     final List<Map<String, Object>> events = objectMapper.readValue(msg,
-                            new TypeReference<>() {});
+                                                                                    new TypeReference<>() {});
                     for (final Map<String, Object> event : events) {
                         if ("append".equals(event.get("op")) && "messages".equals(event.get("dataset"))) {
                             appendEvent = event;
@@ -199,13 +201,13 @@ class ChatWebSocketTest {
                     }
                 } else {
                     final Map<String, Object> event = objectMapper.readValue(msg,
-                            new TypeReference<>() {});
+                                                                             new TypeReference<>() {});
                     if ("append".equals(event.get("op")) && "messages".equals(event.get("dataset"))) {
                         appendEvent = event;
                         break;
                     }
                 }
-                if (appendEvent != null) break;
+                if (appendEvent != null) {break;}
             }
 
             assertThat(appendEvent).isNotNull();
@@ -218,13 +220,11 @@ class ChatWebSocketTest {
             final long appendSeq = Long.parseLong((String) appendEvent.get("seq"));
             assertThat(appendSeq).isGreaterThan(snapshotSeq);
 
-            @SuppressWarnings("unchecked")
-            final var rows = (List<List<String>>) appendEvent.get("rows");
+            @SuppressWarnings("unchecked") final var rows = (List<List<String>>) appendEvent.get("rows");
             assertThat(rows).isNotEmpty();
             final var firstRow = rows.get(0);
             assertThat(firstRow).hasSizeGreaterThanOrEqualTo(6);
-        }
-    }
+        }}
 
     @Test
     void membershipIdValueFormat() throws Exception {

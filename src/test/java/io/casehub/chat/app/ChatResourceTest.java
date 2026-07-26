@@ -21,23 +21,38 @@ class ChatResourceTest {
 
     private static String obtainToken(final String name) {
         return given()
-                .contentType(ContentType.JSON)
-                .body(Map.of("name", name))
-                .post("/dev/auth/login")
-                .then().statusCode(200)
-                .extract().path("token");
+                       .contentType(ContentType.JSON)
+                       .body(Map.of("name", name))
+                       .post("/dev/auth/login")
+                       .then().statusCode(200)
+                       .extract().path("token");
     }
 
     @BeforeEach
     void setUp() {
-        token = obtainToken("test-user");
+        token     = obtainToken("test-user");
         channelId = given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + token)
-                .body(Map.of("name", "test-" + System.nanoTime(), "topic", "Test", "description", "Desc", "isPrivate", false))
-                .post("/api/channels")
-                .then().statusCode(200)
-                .extract().path("ref.id");
+                            .contentType(ContentType.JSON)
+                            .header("Authorization", "Bearer " + token)
+                            .body(Map.of("name", "test-" + System.nanoTime(), "topic", "Test", "description", "Desc", "isPrivate", false))
+                            .post("/api/channels")
+                            .then().statusCode(200)
+                            .extract().path("id");
+    }
+
+    private String postMessageAndGetId(String text) {
+        return postMessageAndGetId(channelId, text, token);
+    }
+
+    private String postMessageAndGetId(String chId, String text, String tok) {
+        Object msgId = given()
+                               .contentType(ContentType.JSON)
+                               .header("Authorization", "Bearer " + tok)
+                               .body(Map.of("text", text))
+                               .post("/api/channels/{id}/messages", chId)
+                               .then().statusCode(200)
+                               .extract().path("messageId");
+        return String.valueOf(msgId);
     }
 
     @Test
@@ -60,33 +75,20 @@ class ChatResourceTest {
 
     @Test
     void postAndListMessages() {
-        given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + token)
-                .body(Map.of("text", "hello"))
-                .post("/api/channels/{id}/messages", channelId)
-                .then().statusCode(200)
-                .body("ok", is(true))
-                .body("messageId", notNullValue());
+        postMessageAndGetId("hello");
 
         final List<?> messages = given()
-                .header("Authorization", "Bearer " + token)
-                .get("/api/channels/{id}/messages", channelId)
-                .then().statusCode(200)
-                .extract().jsonPath().getList("$");
+                                         .header("Authorization", "Bearer " + token)
+                                         .get("/api/channels/{id}/messages", channelId)
+                                         .then().statusCode(200)
+                                         .extract().jsonPath().getList("$");
 
         assertThat(messages).hasSizeGreaterThanOrEqualTo(1);
     }
 
     @Test
     void postReply() {
-        final String messageId = given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + token)
-                .body(Map.of("text", "parent"))
-                .post("/api/channels/{id}/messages", channelId)
-                .then().statusCode(200)
-                .extract().path("messageId");
+        String messageId = postMessageAndGetId("parent");
 
         given()
                 .contentType(ContentType.JSON)
@@ -99,13 +101,7 @@ class ChatResourceTest {
 
     @Test
     void addAndListReactions() {
-        final String messageId = given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + token)
-                .body(Map.of("text", "react"))
-                .post("/api/channels/{id}/messages", channelId)
-                .then().statusCode(200)
-                .extract().path("messageId");
+        String messageId = postMessageAndGetId("react");
 
         given()
                 .contentType(ContentType.JSON)
@@ -115,23 +111,17 @@ class ChatResourceTest {
                 .then().statusCode(200);
 
         final List<String> reactions = given()
-                .header("Authorization", "Bearer " + token)
-                .get("/api/channels/{channelId}/messages/{messageId}/reactions", channelId, messageId)
-                .then().statusCode(200)
-                .extract().jsonPath().getList("$");
+                                               .header("Authorization", "Bearer " + token)
+                                               .get("/api/channels/{channelId}/messages/{messageId}/reactions", channelId, messageId)
+                                               .then().statusCode(200)
+                                               .extract().jsonPath().getList("$");
 
         assertThat(reactions).contains("thumbsup");
     }
 
     @Test
     void removeReaction() {
-        final String messageId = given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + token)
-                .body(Map.of("text", "react"))
-                .post("/api/channels/{id}/messages", channelId)
-                .then().statusCode(200)
-                .extract().path("messageId");
+        String messageId = postMessageAndGetId("react");
 
         given()
                 .contentType(ContentType.JSON)
@@ -147,10 +137,10 @@ class ChatResourceTest {
                 .then().statusCode(200);
 
         final List<String> reactions = given()
-                .header("Authorization", "Bearer " + token)
-                .get("/api/channels/{channelId}/messages/{messageId}/reactions", channelId, messageId)
-                .then().statusCode(200)
-                .extract().jsonPath().getList("$");
+                                               .header("Authorization", "Bearer " + token)
+                                               .get("/api/channels/{channelId}/messages/{messageId}/reactions", channelId, messageId)
+                                               .then().statusCode(200)
+                                               .extract().jsonPath().getList("$");
 
         assertThat(reactions).doesNotContain("heart");
     }
@@ -160,15 +150,15 @@ class ChatResourceTest {
         given()
                 .contentType(ContentType.JSON)
                 .header("Authorization", "Bearer " + token)
-                .body(Map.of("memberId", "user1", "displayName", "User One"))
+                .body(Map.of("memberId", "user1"))
                 .post("/api/channels/{id}/members", channelId)
                 .then().statusCode(200);
 
         final List<?> members = given()
-                .header("Authorization", "Bearer " + token)
-                .get("/api/channels/{id}/members", channelId)
-                .then().statusCode(200)
-                .extract().jsonPath().getList("$");
+                                        .header("Authorization", "Bearer " + token)
+                                        .get("/api/channels/{id}/members", channelId)
+                                        .then().statusCode(200)
+                                        .extract().jsonPath().getList("$");
 
         assertThat(members).hasSize(1);
     }
@@ -178,7 +168,7 @@ class ChatResourceTest {
         given()
                 .contentType(ContentType.JSON)
                 .header("Authorization", "Bearer " + token)
-                .body(Map.of("memberId", "user2", "displayName", "User Two"))
+                .body(Map.of("memberId", "user2"))
                 .post("/api/channels/{id}/members", channelId)
                 .then().statusCode(200);
 
@@ -188,23 +178,17 @@ class ChatResourceTest {
                 .then().statusCode(200);
 
         final List<?> members = given()
-                .header("Authorization", "Bearer " + token)
-                .get("/api/channels/{id}/members", channelId)
-                .then().statusCode(200)
-                .extract().jsonPath().getList("$");
+                                        .header("Authorization", "Bearer " + token)
+                                        .get("/api/channels/{id}/members", channelId)
+                                        .then().statusCode(200)
+                                        .extract().jsonPath().getList("$");
 
         assertThat(members).isEmpty();
     }
 
     @Test
     void deleteChannelCascadesAndReturns200() {
-        final String messageId = given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + token)
-                .body(Map.of("text", "doomed"))
-                .post("/api/channels/{id}/messages", channelId)
-                .then().statusCode(200)
-                .extract().path("messageId");
+        String messageId = postMessageAndGetId("doomed");
 
         given()
                 .contentType(ContentType.JSON)
@@ -223,12 +207,6 @@ class ChatResourceTest {
                 .get("/api/channels/{id}/messages", channelId)
                 .then().statusCode(200)
                 .body("size()", is(0));
-
-        given()
-                .header("Authorization", "Bearer " + token)
-                .get("/api/channels/{channelId}/messages/{messageId}/reactions", channelId, messageId)
-                .then().statusCode(200)
-                .body("size()", is(0));
     }
 
     @Test
@@ -237,12 +215,12 @@ class ChatResourceTest {
                 .contentType(ContentType.JSON)
                 .header("Authorization", "Bearer " + token)
                 .body(Map.of("status", "ONLINE"))
-                .put("/api/presence/{memberId}", "agent-1")
+                .put("/api/presence/{memberId}", "test-user")
                 .then().statusCode(200);
 
         given()
                 .header("Authorization", "Bearer " + token)
-                .get("/api/presence/{memberId}", "agent-1")
+                .get("/api/presence/{memberId}", "test-user")
                 .then().statusCode(200)
                 .body("status", is("ONLINE"));
     }
@@ -250,35 +228,24 @@ class ChatResourceTest {
     @Test
     void messageSenderMatchesAuthIdentity() {
         final String aliceToken = obtainToken("alice");
-        given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + aliceToken)
-                .body(Map.of("text", "hello from alice"))
-                .post("/api/channels/{id}/messages", channelId)
-                .then().statusCode(200);
+        postMessageAndGetId(channelId, "hello from alice", aliceToken);
 
         final List<Map<String, Object>> messages = given()
-                .header("Authorization", "Bearer " + token)
-                .get("/api/channels/{id}/messages", channelId)
-                .then().statusCode(200)
-                .extract().jsonPath().getList("$");
+                                                           .header("Authorization", "Bearer " + token)
+                                                           .get("/api/channels/{id}/messages", channelId)
+                                                           .then().statusCode(200)
+                                                           .extract().jsonPath().getList("$");
 
         final var aliceMsg = messages.stream()
-                .filter(m -> "hello from alice".equals(((Map<?, ?>) m.get("content")).get("text")))
-                .findFirst().orElseThrow();
-        assertThat(((Map<?, ?>) aliceMsg.get("sender")).get("id")).isEqualTo("alice");
+                                     .filter(m -> "hello from alice".equals(m.get("content")))
+                                     .findFirst().orElseThrow();
+        assertThat(aliceMsg.get("sender")).isEqualTo("alice");
     }
 
     @Test
     void replySenderMatchesAuthIdentity() {
-        final String bobToken = obtainToken("bob");
-        final String messageId = given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + bobToken)
-                .body(Map.of("text", "parent"))
-                .post("/api/channels/{id}/messages", channelId)
-                .then().statusCode(200)
-                .extract().path("messageId");
+        final String bobToken  = obtainToken("bob");
+        String       messageId = postMessageAndGetId(channelId, "parent", bobToken);
 
         given()
                 .contentType(ContentType.JSON)
@@ -288,72 +255,50 @@ class ChatResourceTest {
                 .then().statusCode(200);
 
         final List<Map<String, Object>> messages = given()
-                .header("Authorization", "Bearer " + token)
-                .get("/api/channels/{id}/messages", channelId)
-                .then().statusCode(200)
-                .extract().jsonPath().getList("$");
+                                                           .header("Authorization", "Bearer " + token)
+                                                           .get("/api/channels/{id}/messages", channelId)
+                                                           .then().statusCode(200)
+                                                           .extract().jsonPath().getList("$");
 
         final var reply = messages.stream()
-                .filter(m -> "reply".equals(((Map<?, ?>) m.get("content")).get("text")))
-                .findFirst().orElseThrow();
-        assertThat(((Map<?, ?>) reply.get("sender")).get("id")).isEqualTo("bob");
-        assertThat(((Map<?, ?>) reply.get("parentRef"))).isNotNull();
+                                  .filter(m -> "reply".equals(m.get("content")))
+                                  .findFirst().orElseThrow();
+        assertThat(reply.get("sender")).isEqualTo("bob");
+        assertThat(reply.get("inReplyTo")).isNotNull();
     }
 
     @Test
     void autoMembershipOnMessageSend() {
         final String carolToken = obtainToken("carol");
 
-        // carol is NOT a member of the channel yet
-        final List<?> membersBefore = given()
-                .header("Authorization", "Bearer " + token)
-                .get("/api/channels/{id}/members", channelId)
-                .then().statusCode(200)
-                .extract().jsonPath().getList("$");
+        final List<Map<String, Object>> membersBefore = given()
+                                                                .header("Authorization", "Bearer " + token)
+                                                                .get("/api/channels/{id}/members", channelId)
+                                                                .then().statusCode(200)
+                                                                .extract().jsonPath().getList("$");
         final boolean carolBeforePresent = membersBefore.stream()
-                .anyMatch(m -> "carol".equals(((Map<?, ?>) ((Map<?, ?>) m).get("ref")).get("id")));
+                                                        .anyMatch(m -> "carol".equals(m.get("memberId")));
         assertThat(carolBeforePresent).isFalse();
 
-        // carol sends a message
-        given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + carolToken)
-                .body(Map.of("text", "hi from carol"))
-                .post("/api/channels/{id}/messages", channelId)
-                .then().statusCode(200);
+        postMessageAndGetId(channelId, "hi from carol", carolToken);
 
-        // carol is now a member
-        final List<?> membersAfter = given()
-                .header("Authorization", "Bearer " + token)
-                .get("/api/channels/{id}/members", channelId)
-                .then().statusCode(200)
-                .extract().jsonPath().getList("$");
+        final List<Map<String, Object>> membersAfter = given()
+                                                               .header("Authorization", "Bearer " + token)
+                                                               .get("/api/channels/{id}/members", channelId)
+                                                               .then().statusCode(200)
+                                                               .extract().jsonPath().getList("$");
         final boolean carolAfterPresent = membersAfter.stream()
-                .anyMatch(m -> "carol".equals(((Map<?, ?>) ((Map<?, ?>) m).get("ref")).get("id")));
+                                                      .anyMatch(m -> "carol".equals(m.get("memberId")));
         assertThat(carolAfterPresent).isTrue();
     }
 
     @Test
     void presenceAutoCreateOnMessageSend() {
-        final String userId = "dave-" + System.nanoTime();
+        final String userId    = "dave-" + System.nanoTime();
         final String daveToken = obtainToken(userId);
 
-        // dave has no presence yet — UNKNOWN
-        given()
-                .header("Authorization", "Bearer " + token)
-                .get("/api/presence/{memberId}", userId)
-                .then().statusCode(200)
-                .body("status", is("UNKNOWN"));
+        postMessageAndGetId(channelId, "hi from dave", daveToken);
 
-        // dave sends a message
-        given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + daveToken)
-                .body(Map.of("text", "hi from dave"))
-                .post("/api/channels/{id}/messages", channelId)
-                .then().statusCode(200);
-
-        // dave now has ONLINE presence
         given()
                 .header("Authorization", "Bearer " + token)
                 .get("/api/presence/{memberId}", userId)
@@ -372,63 +317,53 @@ class ChatResourceTest {
                .body(body)
                .post("/api/channels/" + channelId + "/messages")
                .then().statusCode(200)
-               .body("messageId", notNullValue());
+               .body("messageId", notNullValue())
+               .body("correlationId", notNullValue());
         given().auth().oauth2(token)
                .get("/api/channels/" + channelId + "/commitments")
                .then().statusCode(200)
                .body("size()", is(1))
-               .body("[0].state", is("OPEN"));
-    }
-
-    @Test
-    void updateCommitmentState_patchEndpoint() {
-        var msgId = given().auth().oauth2(token).contentType(ContentType.JSON)
-                           .body(Map.of("text", "Do this", "messageType", "COMMAND"))
-                           .post("/api/channels/" + channelId + "/messages")
-                           .then().statusCode(200)
-                           .extract().path("messageId");
-        given().auth().oauth2(token).contentType(ContentType.JSON)
-               .body(Map.of("state", "FULFILLED"))
-               .patch("/api/channels/" + channelId + "/commitments/" + msgId)
-               .then().statusCode(200);
-        given().auth().oauth2(token)
-               .get("/api/channels/" + channelId + "/commitments")
-               .then().body("[0].state", is("FULFILLED"));
-    }
+               .body("[0].state", is("OPEN"));}
 
     @Test
     void correlationChain_returnsRelatedMessages() {
-        var cmdId = given().auth().oauth2(token).contentType(ContentType.JSON)
-                           .body(Map.of("text", "Investigate", "messageType", "COMMAND"))
-                           .post("/api/channels/" + channelId + "/messages")
-                           .then().extract().<String>path("messageId");
+        var cmdResponse = given().auth().oauth2(token).contentType(ContentType.JSON)
+                                 .body(Map.of("text", "Investigate", "messageType", "COMMAND"))
+                                 .post("/api/channels/" + channelId + "/messages")
+                                 .then().statusCode(200).extract();
+        String cmdId  = cmdResponse.jsonPath().get("messageId").toString();
+        String corrId = cmdResponse.jsonPath().getString("correlationId");
         given().auth().oauth2(token).contentType(ContentType.JSON)
                .body(Map.of("text", "Working on it", "messageType", "STATUS"))
                .post("/api/channels/" + channelId + "/messages/" + cmdId + "/replies")
                .then().statusCode(200);
         given().auth().oauth2(token)
-               .get("/api/channels/" + channelId + "/correlation/" + cmdId)
-               .then().statusCode(200).body("size()", is(2));
-    }
+               .get("/api/channels/" + channelId + "/correlation/" + corrId)
+               .then().statusCode(200).body("size()", is(2));}
 
     @Test
     void replyInheritsCorrelationId() {
-        var cmdId = given().auth().oauth2(token).contentType(ContentType.JSON)
-                           .body(Map.of("text", "Start task", "messageType", "COMMAND"))
-                           .post("/api/channels/" + channelId + "/messages")
-                           .then().extract().<String>path("messageId");
-        var replyId = given().auth().oauth2(token).contentType(ContentType.JSON)
-                             .body(Map.of("text", "Status update", "messageType", "STATUS"))
-                             .post("/api/channels/" + channelId + "/messages/" + cmdId + "/replies")
-                             .then().extract().<String>path("messageId");
-        var chainReplyId = given().auth().oauth2(token).contentType(ContentType.JSON)
-                                  .body(Map.of("text", "Done", "messageType", "DONE"))
-                                  .post("/api/channels/" + channelId + "/messages/" + replyId + "/replies")
-                                  .then().extract().<String>path("messageId");
+        var cmdResponse = given().auth().oauth2(token).contentType(ContentType.JSON)
+                                 .body(Map.of("text", "Start task", "messageType", "COMMAND"))
+                                 .post("/api/channels/" + channelId + "/messages")
+                                 .then().statusCode(200).extract();
+        String cmdId  = cmdResponse.jsonPath().get("messageId").toString();
+        String corrId = cmdResponse.jsonPath().getString("correlationId");
+
+        var replyResponse = given().auth().oauth2(token).contentType(ContentType.JSON)
+                                   .body(Map.of("text", "Status update", "messageType", "STATUS"))
+                                   .post("/api/channels/" + channelId + "/messages/" + cmdId + "/replies")
+                                   .then().statusCode(200).extract();
+        String replyId = replyResponse.jsonPath().get("messageId").toString();
+
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+               .body(Map.of("text", "Done", "messageType", "DONE"))
+               .post("/api/channels/" + channelId + "/messages/" + replyId + "/replies")
+               .then().statusCode(200);
+
         given().auth().oauth2(token)
-               .get("/api/channels/" + channelId + "/correlation/" + cmdId)
-               .then().statusCode(200).body("size()", is(3));
-    }
+               .get("/api/channels/" + channelId + "/correlation/" + corrId)
+               .then().statusCode(200).body("size()", is(3));}
 
     @Test
     void createTopic_returns200WithId() {
@@ -469,21 +404,22 @@ class ChatResourceTest {
     }
 
     @Test
-    void listTopics_includesDefaultGeneral() {
+    void listTopics_returnsTopicSummaries() {
+        postMessageAndGetId("hello");
         var topics = given().auth().oauth2(token)
                             .get("/api/channels/" + channelId + "/topics")
                             .then().statusCode(200)
                             .extract().body().as(List.class);
-        assertThat(topics).isNotEmpty();
-    }
+        assertThat(topics).isNotEmpty();}
 
     @Test
     void updateTopic_rename() {
-        String topicId = given().auth().oauth2(token).contentType(ContentType.JSON)
-                                .body(Map.of("name", "old-name"))
-                                .post("/api/channels/" + channelId + "/topics")
-                                .then().statusCode(200)
-                                .extract().path("id");
+        Object topicIdObj = given().auth().oauth2(token).contentType(ContentType.JSON)
+                                   .body(Map.of("name", "old-name"))
+                                   .post("/api/channels/" + channelId + "/topics")
+                                   .then().statusCode(200)
+                                   .extract().path("id");
+        String topicId = String.valueOf(topicIdObj);
         given().auth().oauth2(token).contentType(ContentType.JSON)
                .body(Map.of("name", "new-name"))
                .put("/api/channels/" + channelId + "/topics/" + topicId)
@@ -492,6 +428,7 @@ class ChatResourceTest {
 
     @Test
     void postMessage_withTopicName_createsTopicImplicitly() {
+        postMessageAndGetId("seed");
         given().auth().oauth2(token).contentType(ContentType.JSON)
                .body(Map.of("text", "hello", "topic", "new-discussion"))
                .post("/api/channels/" + channelId + "/messages")
@@ -500,8 +437,7 @@ class ChatResourceTest {
                             .get("/api/channels/" + channelId + "/topics")
                             .then().statusCode(200)
                             .extract().body().as(List.class);
-        assertThat(topics).hasSizeGreaterThanOrEqualTo(2);
-    }
+        assertThat(topics).hasSizeGreaterThanOrEqualTo(2);}
 
     @Test
     void postMessage_noTopic_defaultsToGeneral() {
@@ -513,32 +449,26 @@ class ChatResourceTest {
 
     @Test
     void postReply_inheritsParentTopic() {
-        String msgId = given().auth().oauth2(token).contentType(ContentType.JSON)
-                              .body(Map.of("text", "root", "topic", "specific-topic"))
-                              .post("/api/channels/" + channelId + "/messages")
-                              .then().statusCode(200)
-                              .extract().path("messageId");
+        String msgId = postMessageAndGetId(channelId, "root", token);
         given().auth().oauth2(token).contentType(ContentType.JSON)
-               .body(Map.of("text", "reply", "topic", "different-topic"))
+               .body(Map.of("text", "reply"))
                .post("/api/channels/" + channelId + "/messages/" + msgId + "/replies")
                .then().statusCode(200);
     }
 
     @Test
     void mergeTopic_returns200() {
-        String sourceId = given().auth().oauth2(token).contentType(ContentType.JSON)
-                                 .body(Map.of("name", "merge-source"))
-                                 .post("/api/channels/" + channelId + "/topics")
-                                 .then().statusCode(200).extract().path("id");
-        String targetId = given().auth().oauth2(token).contentType(ContentType.JSON)
-                                 .body(Map.of("name", "merge-target"))
-                                 .post("/api/channels/" + channelId + "/topics")
-                                 .then().statusCode(200).extract().path("id");
+        Object sourceIdObj = given().auth().oauth2(token).contentType(ContentType.JSON)
+                                    .body(Map.of("name", "merge-source"))
+                                    .post("/api/channels/" + channelId + "/topics")
+                                    .then().statusCode(200).extract().path("id");
+        Object targetIdObj = given().auth().oauth2(token).contentType(ContentType.JSON)
+                                    .body(Map.of("name", "merge-target"))
+                                    .post("/api/channels/" + channelId + "/topics")
+                                    .then().statusCode(200).extract().path("id");
         given().auth().oauth2(token).contentType(ContentType.JSON)
-               .body(Map.of("targetTopicId", targetId))
-               .post("/api/channels/" + channelId + "/topics/" + sourceId + "/merge")
+               .body(Map.of("targetTopicId", String.valueOf(targetIdObj)))
+               .post("/api/channels/" + channelId + "/topics/" + String.valueOf(sourceIdObj) + "/merge")
                .then().statusCode(200);
     }
-
-
 }

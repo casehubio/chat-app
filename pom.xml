@@ -19,28 +19,29 @@ REST/WebSocket endpoints, and casehub-pages frontend.</description>
   <url>https://github.com/casehubio/chat-app</url>
 
   <properties>
-    <sqlite.version>3.53.1.0</sqlite.version>
-    <hikari.version>7.0.2</hikari.version>
     <skipDeploy>true</skipDeploy>
     <maven.deploy.skip>true</maven.deploy.skip>
   </properties>
 
   <dependencies>
+    <!-- Qhorus -->
     <dependency>
       <groupId>io.casehub</groupId>
-      <artifactId>casehub-connectors-chat-spi</artifactId>
+      <artifactId>casehub-qhorus-api</artifactId>
       <version>0.2-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>io.casehub</groupId>
-      <artifactId>casehub-connectors-chat-ref</artifactId>
+      <artifactId>casehub-qhorus</artifactId>
       <version>0.2-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>io.casehub</groupId>
-      <artifactId>casehub-connectors-core</artifactId>
+      <artifactId>casehub-platform-api</artifactId>
       <version>0.2-SNAPSHOT</version>
     </dependency>
+
+    <!-- Auth -->
     <dependency>
       <groupId>io.casehub</groupId>
       <artifactId>casehub-pages-auth</artifactId>
@@ -61,16 +62,18 @@ REST/WebSocket endpoints, and casehub-pages frontend.</description>
       <artifactId>quarkus-websockets-next</artifactId>
     </dependency>
 
-    <!-- SQLite -->
+    <!-- H2 + JPA + Flyway -->
     <dependency>
-      <groupId>org.xerial</groupId>
-      <artifactId>sqlite-jdbc</artifactId>
-      <version>${sqlite.version}</version>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-jdbc-h2</artifactId>
     </dependency>
     <dependency>
-      <groupId>com.zaxxer</groupId>
-      <artifactId>HikariCP</artifactId>
-      <version>${hikari.version}</version>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-hibernate-orm</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-flyway</artifactId>
     </dependency>
 
     <!-- Testing -->
@@ -87,13 +90,6 @@ REST/WebSocket endpoints, and casehub-pages frontend.</description>
     <dependency>
       <groupId>org.assertj</groupId>
       <artifactId>assertj-core</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.casehub</groupId>
-      <artifactId>casehub-connectors-chat-ref</artifactId>
-      <version>0.2-SNAPSHOT</version>
-      <type>test-jar</type>
       <scope>test</scope>
     </dependency>
     <dependency>

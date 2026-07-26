@@ -1,23 +1,38 @@
 package io.casehub.chat.app;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.casehub.connectors.chat.model.Channel;
-import io.casehub.connectors.chat.model.ChatChannelRef;
-import io.casehub.connectors.chat.model.ChatContent;
-import io.casehub.connectors.chat.model.ChatMessageRef;
-import io.casehub.connectors.chat.model.Member;
-import io.casehub.connectors.chat.model.MemberRef;
-import io.casehub.connectors.chat.model.PresenceStatus;
-import io.casehub.connectors.chat.model.ReceivedMessage;
-import io.casehub.connectors.chat.spi.ChatPlatform;
+import io.casehub.platform.api.identity.ActorType;
+import io.casehub.platform.api.identity.CurrentPrincipal;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelManager;
+import io.casehub.qhorus.api.channel.ChannelMembership;
+import io.casehub.qhorus.api.channel.ChannelReader;
+import io.casehub.qhorus.api.channel.MembershipManager;
+import io.casehub.qhorus.api.channel.PresenceStatus;
+import io.casehub.qhorus.api.channel.PresenceTracker;
+import io.casehub.qhorus.api.channel.ReactionManager;
+import io.casehub.qhorus.api.channel.TopicManager;
+import io.casehub.qhorus.api.message.ArtefactRef;
+import io.casehub.qhorus.api.message.Commitment;
+import io.casehub.qhorus.api.message.ConsumerMessaging;
+import io.casehub.qhorus.api.message.Message;
+import io.casehub.qhorus.api.message.MessageDispatch;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.message.Reaction;
+import io.casehub.qhorus.api.message.TopicSummary;
+import io.casehub.qhorus.api.store.CommitmentReader;
+import io.casehub.qhorus.api.store.MembershipReader;
+import io.casehub.qhorus.api.store.ReactionReader;
+import io.casehub.qhorus.api.store.TopicReader;
 import io.quarkus.security.Authenticated;
-import io.quarkus.security.identity.SecurityIdentity;
+import io.smallrye.common.annotation.Blocking;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.transaction.Transactional;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
@@ -27,275 +42,228 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
-import java.time.Instant;
-import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Path("/api")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@ApplicationScoped
+@Blocking
+@Transactional
 public class ChatResource {
 
-    private static final String PLATFORM_ID = "ref";
-
     @Inject
-    ChatPlatform chatPlatform;
-
+    ConsumerMessaging        messaging;
+    @Inject
+    ChannelManager           channels;
+    @Inject
+    ChannelReader            channelReader;
+    @Inject
+    ReactionManager          reactions;
+    @Inject
+    ReactionReader           reactionReader;
+    @Inject
+    PresenceTracker          presence;
+    @Inject
+    MembershipManager        members;
+    @Inject
+    MembershipReader         memberReader;
+    @Inject
+    CommitmentReader         commitmentReader;
+    @Inject
+    TopicManager             topics;
+    @Inject
+    TopicReader              topicReader;
     @Inject
     ChatWebSocketBroadcaster broadcaster;
-
     @Inject
-    SecurityIdentity identity;
-
+    CurrentPrincipal         currentPrincipal;
     @Inject
-    SqliteChatBackend chatBackend;
-    @Inject
-    ObjectMapper      objectMapper;
-
+    ObjectMapper             objectMapper;
 
     // --- Channels ---
 
     @POST
     @Path("/channels")
-    public Response createChannel(final CreateChannelRequest request) {
-        final Channel channel = chatPlatform.channelManagement().create(
-                request.name(),
-                request.topic() != null ? request.topic() : "",
-                request.description() != null ? request.description() : "",
-                request.isPrivate());
+    public Response createChannel(CreateChannelRequest request) {
+        var channel = channels.create(ChannelCreateRequest.builder(request.name())
+                                                          .description(request.description() != null ? request.description() : "")
+                                                          .build());
         broadcaster.broadcastChannelAppend(channel);
         return Response.ok(channel).build();
     }
 
     @DELETE
     @Path("/channels/{channelId}")
-    public Response deleteChannel(@PathParam("channelId") final String channelId) {
-        chatPlatform.channelManagement().delete(channelId);
-        broadcaster.broadcastChannelRemove(channelId);
+    public Response deleteChannel(@PathParam("channelId") String channelId) {
+        var uuid = UUID.fromString(channelId);
+        channels.delete(uuid, true);
+        broadcaster.broadcastChannelRemove(uuid);
         return Response.noContent().build();
     }
 
     @GET
     @Path("/channels")
     public List<Channel> listChannels() {
-        return chatPlatform.discovery().listChannels();
+        return channelReader.listAll();
     }
 
     // --- Messages ---
 
     @POST
     @Path("/channels/{channelId}/messages")
-    public Response postMessage(@PathParam("channelId") final String channelId,
-                                final PostMessageRequest request) {
-        final var channelRef = new ChatChannelRef(channelId);
-        final var sender     = new MemberRef(identity.getPrincipal().getName());
-        ensureMembership(channelRef, sender);
+    public Response postMessage(@PathParam("channelId") String channelId,
+                                PostMessageRequest request) {
+        var channelUuid = UUID.fromString(channelId);
+        var sender      = currentPrincipal.actorId();
+        ensureMembership(channelUuid, sender);
         ensurePresence(sender);
-        final var content = new ChatContent(request.text());
-        final var msg     = chatBackend.storeMessage(PLATFORM_ID, channelRef, content, sender, null);
 
-        final String msgType       = request.messageType() != null ? request.messageType() : "EVENT";
-        final String actType       = request.actorType() != null ? request.actorType() : "HUMAN";
-        final String correlationId = "COMMAND".equals(msgType) ? msg.messageRef().messageId() : null;
-        String       refsJson      = "[]";
-        try {
-            if (request.artefactRefs() != null && !request.artefactRefs().isEmpty()) {
-                refsJson = objectMapper.writeValueAsString(request.artefactRefs());
-            }
-        } catch (final JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-        final String resolvedTopicId = resolveTopicId(channelId, request.topicId(), request.topic());
-        chatBackend.storeEnrichedFields(msg.messageRef().messageId(), channelId,
-                                        msgType, actType, correlationId, request.target(), refsJson, resolvedTopicId);
-        if ("COMMAND".equals(msgType)) {
-            chatBackend.createCommitment(msg.messageRef().messageId(), channelId, null);
-            broadcaster.broadcastCommitmentAppend(msg.messageRef().messageId(), channelId);
-        }
+        var msgType = request.messageType() != null ? request.messageType() : "QUERY";
+        var actType = request.actorType() != null ? request.actorType() : "HUMAN";
 
-        broadcaster.broadcastMessageAppend(msg);
-        return Response.ok(Map.of(
-                "ok", true,
-                "messageId", msg.messageRef().messageId(),
-                "timestamp", msg.receivedAt().toString())).build();
+        List<ArtefactRef> artefactRefs = parseArtefactRefs(request.artefactRefs());
+        String            topicName    = resolveTopicName(channelUuid, request.topicId(), request.topic());
+        String correlationId = "COMMAND".equals(msgType) ? UUID.randomUUID().toString() : null;
+
+        var dispatch = MessageDispatch.builder()
+                                      .channelId(channelUuid)
+                                      .sender(sender)
+                                      .type(MessageType.valueOf(msgType))
+                                      .actorType(ActorType.valueOf(actType))
+                                      .content(request.text())
+                                      .correlationId(correlationId)
+                                      .target(request.target())
+                                      .artefactRefs(artefactRefs)
+                                      .topic(topicName)
+                                      .build();
+
+        var result = messaging.dispatch(dispatch);
+        var response = new java.util.LinkedHashMap<String, Object>();
+        response.put("ok", true);
+        response.put("messageId", result.messageId());
+        if (result.correlationId() != null) response.put("correlationId", result.correlationId());
+        return Response.ok(response).build();
     }
-
-    private void ensureMembership(final ChatChannelRef channelRef, final MemberRef sender) {
-        final boolean isMember = chatPlatform.members().list(channelRef).stream()
-                                             .anyMatch(m -> m.ref().id().equals(sender.id()));
-        if (!isMember) {
-            final var member = new Member(sender, sender.id());
-            chatPlatform.memberManagement().add(channelRef, member);
-            broadcaster.broadcastMemberAppend(channelRef.id(), member);
-        }
-    }
-
-    private void ensurePresence(final MemberRef sender) {
-        if (chatPlatform.presence().of(sender) == PresenceStatus.UNKNOWN) {
-            chatPlatform.presence().set(sender, PresenceStatus.ONLINE);
-            broadcaster.broadcastPresenceReplace(sender, PresenceStatus.ONLINE);
-        }
-    }
-
-    private String resolveTopicId(final String channelId, final String topicId, final String topicName) {
-        if (topicId != null && !topicId.isEmpty()) {
-            final var topic = chatBackend.findTopicById(topicId);
-            if (topic.isPresent() && channelId.equals(topic.get().get("channelId"))) {
-                final String state = (String) topic.get().get("state");
-                if ("MERGED".equals(state)) {
-                    final String mergedInto = (String) topic.get().get("mergedInto");
-                    if (mergedInto != null) return mergedInto;
-                }
-                if ("RESOLVED".equals(state) || "ARCHIVED".equals(state)) {
-                    chatBackend.updateTopic(topicId, null, "ACTIVE");
-                }
-                return topicId;
-            }
-        }
-        if (topicName != null && !topicName.trim().isEmpty()) {
-            final String trimmed  = topicName.trim();
-            final var    existing = chatBackend.findTopicByName(channelId, trimmed);
-            if (existing.isPresent()) {
-                final String existingId = (String) existing.get().get("id");
-                final String state      = (String) existing.get().get("state");
-                if ("RESOLVED".equals(state) || "ARCHIVED".equals(state)) {
-                    chatBackend.updateTopic(existingId, null, "ACTIVE");
-                }
-                return existingId;
-            }
-            try {
-                final var created = chatBackend.createTopic(channelId, trimmed);
-                return (String) created.get("id");
-            } catch (final RuntimeException e) {
-                if (e.getMessage() != null && e.getMessage().contains("UNIQUE constraint")) {
-                    return (String) chatBackend.findTopicByName(channelId, trimmed).get().get("id");
-                }
-                throw e;
-            }
-        }
-        return chatBackend.getDefaultTopicId(channelId);
-    }
-
 
     @GET
     @Path("/channels/{channelId}/messages")
-    public List<ReceivedMessage> listMessages(@PathParam("channelId") final String channelId,
-                                              @QueryParam("since") final String since) {
-        final Instant sinceInstant;
+    public List<Message> listMessages(@PathParam("channelId") String channelId,
+                                      @QueryParam("since") String since) {
+        var  channelUuid = UUID.fromString(channelId);
+        long afterId     = 0;
         if (since != null) {
             try {
-                sinceInstant = Instant.parse(since);
-            } catch (final DateTimeParseException e) {
+                afterId = Long.parseLong(since);
+            } catch (NumberFormatException e) {
                 throw new jakarta.ws.rs.BadRequestException("Invalid 'since' parameter: " + since);
             }
-        } else {
-            sinceInstant = Instant.EPOCH;
         }
-        return chatPlatform.messageHistory().messages(new ChatChannelRef(channelId), sinceInstant);
+        return messaging.history(channelUuid, afterId, 10000);
     }
 
     // --- Replies ---
 
     @POST
     @Path("/channels/{channelId}/messages/{messageId}/replies")
-    public Response postReply(@PathParam("channelId") final String channelId,
-                              @PathParam("messageId") final String messageId,
-                              final PostMessageRequest request) {
-        final var channelRef = new ChatChannelRef(channelId);
-        final var parentRef  = new ChatMessageRef(channelRef, messageId);
-        final var sender     = new MemberRef(identity.getPrincipal().getName());
-        ensureMembership(channelRef, sender);
+    public Response postReply(@PathParam("channelId") String channelId,
+                              @PathParam("messageId") String messageId,
+                              PostMessageRequest request) {
+        var channelUuid = UUID.fromString(channelId);
+        var parentId    = Long.parseLong(messageId);
+        var sender      = currentPrincipal.actorId();
+        ensureMembership(channelUuid, sender);
         ensurePresence(sender);
-        final var content = new ChatContent(request.text());
-        final var msg     = chatBackend.storeMessage(PLATFORM_ID, channelRef, content, sender, parentRef);
 
-        final String msgType       = request.messageType() != null ? request.messageType() : "EVENT";
-        final String actType       = request.actorType() != null ? request.actorType() : "HUMAN";
-        final var    parentFields  = chatBackend.getEnrichedFields(messageId);
-        String       correlationId = null;
-        if ("COMMAND".equals(parentFields.get("message_type"))) {
-            correlationId = messageId;
-        } else if (parentFields.get("correlation_id") != null) {
-            correlationId = (String) parentFields.get("correlation_id");
-        }
-        String refsJson = "[]";
-        try {
-            if (request.artefactRefs() != null && !request.artefactRefs().isEmpty()) {
-                refsJson = objectMapper.writeValueAsString(request.artefactRefs());
-            }
-        } catch (final JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-        final String parentTopicId = (String) parentFields.getOrDefault("topic_id", chatBackend.getDefaultTopicId(channelId));
-        chatBackend.storeEnrichedFields(msg.messageRef().messageId(), channelId,
-                                        msgType, actType, correlationId, request.target(), refsJson, parentTopicId);
+        var parent = messaging.findById(parentId)
+                              .orElseThrow(() -> new jakarta.ws.rs.BadRequestException("Parent message not found"));
 
-        broadcaster.broadcastMessageAppend(msg);
+        String correlationId = parent.correlationId();
+
+        var msgType = request.messageType() != null ? request.messageType() : "QUERY";
+        var actType = request.actorType() != null ? request.actorType() : "HUMAN";
+
+        List<ArtefactRef> artefactRefs = parseArtefactRefs(request.artefactRefs());
+        String            topicName    = parent.topic() != null ? parent.topic() : "";
+
+        var dispatch = MessageDispatch.builder()
+                                      .channelId(channelUuid)
+                                      .sender(sender)
+                                      .type(MessageType.valueOf(msgType))
+                                      .actorType(ActorType.valueOf(actType))
+                                      .content(request.text())
+                                      .correlationId(correlationId)
+                                      .inReplyTo(parentId)
+                                      .target(request.target())
+                                      .artefactRefs(artefactRefs)
+                                      .topic(topicName)
+                                      .build();
+
+        var result = messaging.dispatch(dispatch);
         return Response.ok(Map.of(
                 "ok", true,
-                "messageId", msg.messageRef().messageId(),
-                "timestamp", msg.receivedAt().toString())).build();
+                "messageId", result.messageId())).build();
     }
 
     // --- Reactions ---
 
     @POST
     @Path("/channels/{channelId}/messages/{messageId}/reactions")
-    public Response addReaction(@PathParam("channelId") final String channelId,
-                                @PathParam("messageId") final String messageId,
-                                final ReactionRequest request) {
-        chatPlatform.reactions().add(
-                new ChatMessageRef(new ChatChannelRef(channelId), messageId), request.emoji());
-        broadcaster.broadcastReactionAppend(messageId, request.emoji());
+    public Response addReaction(@PathParam("channelId") String channelId,
+                                @PathParam("messageId") String messageId,
+                                ReactionRequest request) {
+        reactions.react(Long.parseLong(messageId), request.emoji());
+        broadcaster.broadcastReactionAppend(Long.parseLong(messageId), request.emoji());
         return Response.ok().build();
     }
 
     @DELETE
     @Path("/channels/{channelId}/messages/{messageId}/reactions/{emoji}")
-    public Response removeReaction(@PathParam("channelId") final String channelId,
-                                   @PathParam("messageId") final String messageId,
-                                   @PathParam("emoji") final String emoji) {
-        chatPlatform.reactions().remove(
-                new ChatMessageRef(new ChatChannelRef(channelId), messageId), emoji);
-        broadcaster.broadcastReactionRemove(messageId, emoji);
+    public Response removeReaction(@PathParam("channelId") String channelId,
+                                   @PathParam("messageId") String messageId,
+                                   @PathParam("emoji") String emoji) {
+        reactions.unreact(Long.parseLong(messageId), emoji);
+        broadcaster.broadcastReactionRemove(Long.parseLong(messageId), emoji);
         return Response.ok().build();
     }
 
     @GET
     @Path("/channels/{channelId}/messages/{messageId}/reactions")
-    public List<String> listReactions(@PathParam("channelId") final String channelId,
-                                      @PathParam("messageId") final String messageId) {
-        return chatPlatform.reactions().list(
-                new ChatMessageRef(new ChatChannelRef(channelId), messageId));
+    public List<String> listReactions(@PathParam("channelId") String channelId,
+                                      @PathParam("messageId") String messageId) {
+        return reactionReader.findByMessage(Long.parseLong(messageId)).stream()
+                             .map(Reaction::emoji)
+                             .toList();
     }
 
     // --- Members ---
 
     @GET
     @Path("/channels/{channelId}/members")
-    public List<Member> listMembers(@PathParam("channelId") final String channelId) {
-        return chatPlatform.members().list(new ChatChannelRef(channelId));
+    public List<ChannelMembership> listMembers(@PathParam("channelId") String channelId) {
+        return memberReader.findByChannel(UUID.fromString(channelId));
     }
 
     @POST
     @Path("/channels/{channelId}/members")
-    public Response addMember(@PathParam("channelId") final String channelId,
-                              final AddMemberRequest request) {
-        final var member = new Member(new MemberRef(request.memberId()), request.displayName());
-        chatPlatform.memberManagement().add(new ChatChannelRef(channelId), member);
-        broadcaster.broadcastMemberAppend(channelId, member);
+    public Response addMember(@PathParam("channelId") String channelId,
+                              AddMemberRequest request) {
+        var channelUuid = UUID.fromString(channelId);
+        var membership  = members.join(channelUuid, request.memberId());
+        broadcaster.broadcastMemberAppend(channelUuid, membership);
         return Response.ok().build();
     }
 
     @DELETE
     @Path("/channels/{channelId}/members/{memberId}")
-    public Response removeMember(@PathParam("channelId") final String channelId,
-                                 @PathParam("memberId") final String memberId) {
-        final var memberRef = new MemberRef(memberId);
-        chatPlatform.memberManagement().remove(new ChatChannelRef(channelId), memberRef);
-        broadcaster.broadcastMemberRemove(channelId, memberRef);
+    public Response removeMember(@PathParam("channelId") String channelId,
+                                 @PathParam("memberId") String memberId) {
+        var channelUuid = UUID.fromString(channelId);
+        members.leave(channelUuid, memberId);
+        broadcaster.broadcastMemberRemove(channelUuid, memberId);
         return Response.ok().build();
     }
 
@@ -303,21 +271,20 @@ public class ChatResource {
 
     @GET
     @Path("/presence/{memberId}")
-    public Map<String, String> getPresence(@PathParam("memberId") final String memberId) {
-        final PresenceStatus status = chatPlatform.presence().of(new MemberRef(memberId));
-        return Map.of("memberId", memberId, "status", status.name());
+    public Map<String, String> getPresence(@PathParam("memberId") String memberId) {
+        var p = presence.getPresence(memberId);
+        return Map.of("memberId", memberId, "status", p.status().name());
     }
 
     @PUT
     @Path("/presence/{memberId}")
-    public Response setPresence(@PathParam("memberId") final String memberId,
-                                final SetPresenceRequest request) {
+    public Response setPresence(@PathParam("memberId") String memberId,
+                                SetPresenceRequest request) {
         try {
-            final var memberRef = new MemberRef(memberId);
-            final var status    = PresenceStatus.valueOf(request.status());
-            chatPlatform.presence().set(memberRef, status);
-            broadcaster.broadcastPresenceReplace(memberRef, status);
-        } catch (final IllegalArgumentException e) {
+            var status = PresenceStatus.valueOf(request.status());
+            presence.heartbeat(status, null);
+            broadcaster.broadcastPresenceReplace(memberId, status);
+        } catch (IllegalArgumentException e) {
             throw new jakarta.ws.rs.BadRequestException("Invalid status: " + request.status());
         }
         return Response.ok().build();
@@ -327,151 +294,169 @@ public class ChatResource {
 
     @PUT
     @Path("/channels/{channelId}/read")
-    public Response markRead(@PathParam("channelId") final String channelId) {
-        final var channelRef = new ChatChannelRef(channelId);
-        final var memberRef  = new MemberRef(identity.getPrincipal().getName());
-        chatBackend.markRead(channelRef, memberRef, java.time.Instant.now());
+    public Response markRead(@PathParam("channelId") String channelId,
+                             MarkReadRequest request) {
+        var channelUuid = UUID.fromString(channelId);
+        var memberId    = currentPrincipal.actorId();
+        members.updateLastReadMessageId(channelUuid, memberId, request.lastReadMessageId());
         return Response.ok().build();
     }
 
-    // --- Request DTOs ---
-
-
     // --- Commitments ---
-
-    @PATCH
-    @Path("/channels/{channelId}/commitments/{commitmentId}")
-    public Response updateCommitment(@PathParam("channelId") final String channelId,
-                                     @PathParam("commitmentId") final String commitmentId,
-                                     final UpdateCommitmentRequest request) {
-        chatBackend.updateCommitmentState(commitmentId, request.state(), request.acknowledgedAt());
-        broadcaster.broadcastCommitmentReplace(commitmentId, channelId);
-        return Response.ok(Map.of("ok", true)).build();
-    }
 
     @GET
     @Path("/channels/{channelId}/commitments")
-    public List<Map<String, Object>> listCommitments(@PathParam("channelId") final String channelId) {
-        return chatBackend.listCommitments(channelId);
+    public List<Commitment> listCommitments(@PathParam("channelId") String channelId) {
+        return commitmentReader.findByChannel(UUID.fromString(channelId));
     }
 
     // --- Correlation ---
 
     @GET
     @Path("/channels/{channelId}/correlation/{correlationId}")
-    public List<Map<String, Object>> correlationChain(@PathParam("channelId") final String channelId,
-                                                      @PathParam("correlationId") final String correlationId) {
-        return chatBackend.correlationMessages(channelId, correlationId);
+    public List<Message> correlationChain(@PathParam("channelId") String channelId,
+                                          @PathParam("correlationId") String correlationId) {
+        return messaging.findAllByCorrelationId(correlationId);
     }
-// --- Topics ---
+
+    // --- Topics ---
 
     @POST
     @Path("/channels/{channelId}/topics")
-    public Response createTopic(@PathParam("channelId") final String channelId,
-                                final CreateTopicRequest request) {
-        final String name = request.name() != null ? request.name().trim() : "";
+    public Response createTopic(@PathParam("channelId") String channelId,
+                                CreateTopicRequest request) {
+        var channelUuid = UUID.fromString(channelId);
+        var name        = request.name() != null ? request.name().trim() : "";
         if (name.isEmpty()) {
             return Response.status(400).entity(Map.of("error", "Topic name must not be empty")).build();
         }
         if (name.length() > 100) {
             return Response.status(400).entity(Map.of("error", "Topic name must be 100 characters or less")).build();
         }
-        if ("General".equals(name)) {
+        if ("General".equals(name) || "general".equals(name)) {
             return Response.status(409).entity(Map.of("error", "\"General\" is reserved")).build();
         }
-        try {
-            final var topic = chatBackend.createTopic(channelId, name);
-            broadcaster.broadcastTopicAppend(channelId);
-            return Response.ok(topic).build();
-        } catch (final RuntimeException e) {
-            if (e.getMessage() != null && e.getMessage().contains("UNIQUE constraint")) {
-                return Response.status(409).entity(Map.of("error", "Topic already exists")).build();
-            }
-            throw e;
+        var existing = topicReader.find(channelUuid, name);
+        if (existing.isPresent()) {
+            return Response.status(409).entity(Map.of("error", "Topic already exists")).build();
         }
+        var topic = topics.create(channelUuid, name);
+        broadcaster.broadcastTopicAppend(channelUuid, topic);
+        return Response.ok(Map.of("id", String.valueOf(topic.id()), "name", topic.name())).build();
     }
 
     @GET
     @Path("/channels/{channelId}/topics")
-    public List<Map<String, Object>> listTopics(@PathParam("channelId") final String channelId) {
-        return chatBackend.listTopics(channelId);
+    public List<TopicSummary> listTopics(@PathParam("channelId") String channelId) {
+        return topics.listTopics(UUID.fromString(channelId));
     }
 
     @PUT
     @Path("/channels/{channelId}/topics/{topicId}")
-    public Response updateTopic(@PathParam("channelId") final String channelId,
-                                @PathParam("topicId") final String topicId,
-                                final UpdateTopicRequest request) {
-        final var existing = chatBackend.findTopicById(topicId);
+    public Response updateTopic(@PathParam("channelId") String channelId,
+                                @PathParam("topicId") String topicId,
+                                UpdateTopicRequest request) {
+        var channelUuid = UUID.fromString(channelId);
+        var topicLongId = Long.parseLong(topicId);
+        var existing    = topicReader.findById(topicLongId);
         if (existing.isEmpty()) {
             return Response.status(404).entity(Map.of("error", "Topic not found")).build();
         }
+        if (!channelUuid.equals(existing.get().channelId())) {
+            return Response.status(400).entity(Map.of("error", "Topic does not belong to this channel")).build();
+        }
         if (request.name() != null) {
-            final String trimmed = request.name().trim();
+            var trimmed = request.name().trim();
             if (trimmed.isEmpty() || trimmed.length() > 100) {
                 return Response.status(400).entity(Map.of("error", "Invalid topic name")).build();
             }
-        }
-        if (!channelId.equals(existing.get().get("channelId"))) {
-            return Response.status(400).entity(Map.of("error", "Topic does not belong to this channel")).build();
+            topics.rename(channelUuid, existing.get().name(), trimmed);
         }
         if (request.state() != null) {
-            final String currentState = (String) existing.get().get("state");
-            if (!isValidStateTransition(currentState, request.state())) {
-                return Response.status(400).entity(Map.of("error",
-                        "Invalid state transition: " + currentState + " → " + request.state())).build();
+            if ("RESOLVED".equals(request.state())) {
+                topics.resolve(channelUuid, existing.get().name());
+            } else if ("ACTIVE".equals(request.state()) && existing.get().resolved()) {
+                topics.unresolve(channelUuid, existing.get().name());
             }
         }
-        chatBackend.updateTopic(topicId, request.name(), request.state());
-        broadcaster.broadcastTopicReplace(channelId, topicId);
+        var updated = topicReader.findById(topicLongId).orElse(existing.get());
+        broadcaster.broadcastTopicReplace(channelUuid, updated);
         return Response.ok(Map.of("ok", true)).build();
     }
 
     @POST
     @Path("/channels/{channelId}/topics/{topicId}/merge")
-    public Response mergeTopic(@PathParam("channelId") final String channelId,
-                               @PathParam("topicId") final String topicId,
-                               final MergeTopicRequest request) {
-        final var source = chatBackend.findTopicById(topicId);
+    public Response mergeTopic(@PathParam("channelId") String channelId,
+                               @PathParam("topicId") String topicId,
+                               MergeTopicRequest request) {
+        var channelUuid   = UUID.fromString(channelId);
+        var sourceTopicId = Long.parseLong(topicId);
+        var source        = topicReader.findById(sourceTopicId);
         if (source.isEmpty()) {
             return Response.status(404).entity(Map.of("error", "Source topic not found")).build();
         }
-        if (!channelId.equals(source.get().get("channelId"))) {
+        if (!channelUuid.equals(source.get().channelId())) {
             return Response.status(400).entity(Map.of("error", "Source topic does not belong to this channel")).build();
         }
-        if ("General".equals(source.get().get("name"))) {
+        if ("general".equalsIgnoreCase(source.get().name())) {
             return Response.status(400).entity(Map.of("error", "Cannot merge the default topic")).build();
         }
-        final var target = chatBackend.findTopicById(request.targetTopicId());
+        var targetTopicId = Long.parseLong(request.targetTopicId());
+        var target        = topicReader.findById(targetTopicId);
         if (target.isEmpty()) {
             return Response.status(404).entity(Map.of("error", "Target topic not found")).build();
         }
-        if (!channelId.equals(target.get().get("channelId"))) {
+        if (!channelUuid.equals(target.get().channelId())) {
             return Response.status(400).entity(Map.of("error", "Target topic does not belong to this channel")).build();
         }
-        if ("MERGED".equals(target.get().get("state"))) {
-            return Response.status(400).entity(Map.of("error", "Cannot merge into a MERGED topic")).build();
-        }
-        final String targetState = (String) target.get().get("state");
-        if ("RESOLVED".equals(targetState) || "ARCHIVED".equals(targetState)) {
-            chatBackend.updateTopic(request.targetTopicId(), null, "ACTIVE");
-        }
-        chatBackend.mergeTopic(topicId, request.targetTopicId());
-        broadcaster.broadcastTopicRemove(channelId, topicId);
-        broadcaster.broadcastTopicReplace(channelId, request.targetTopicId());
+        topics.merge(channelUuid, source.get().name(), target.get().name());
+        broadcaster.broadcastTopicRemove(channelUuid, sourceTopicId);
+        var updatedTarget = topicReader.findById(targetTopicId).orElse(target.get());
+        broadcaster.broadcastTopicReplace(channelUuid, updatedTarget);
         return Response.ok(Map.of("ok", true)).build();
     }
 
+    // --- Private helpers ---
 
-    private static boolean isValidStateTransition(final String from, final String to) {
-        if (from.equals(to)) {return true;}
-        return switch (from) {
-            case "ACTIVE" -> "RESOLVED".equals(to) || "ARCHIVED".equals(to);
-            case "RESOLVED" -> "ACTIVE".equals(to) || "ARCHIVED".equals(to);
-            case "ARCHIVED" -> "ACTIVE".equals(to);
-            default -> false;
-        };
+    private void ensureMembership(UUID channelId, String memberId) {
+        if (memberReader.find(channelId, memberId).isEmpty()) {
+            var membership = members.join(channelId, memberId);
+            broadcaster.broadcastMemberAppend(channelId, membership);
+        }
     }
+
+    private void ensurePresence(String memberId) {
+        var p = presence.getPresence(memberId);
+        if (p == null || p.status() == PresenceStatus.OFFLINE) {
+            presence.heartbeat(PresenceStatus.ONLINE, null);
+            broadcaster.broadcastPresenceReplace(memberId, PresenceStatus.ONLINE);
+        }}
+
+    private String resolveTopicName(UUID channelId, String topicId, String topicName) {
+        if (topicId != null && !topicId.isEmpty()) {
+            var topic = topicReader.findById(Long.parseLong(topicId));
+            if (topic.isPresent() && channelId.equals(topic.get().channelId())) {
+                return topic.get().name();
+            }
+        }
+        if (topicName != null && !topicName.trim().isEmpty()) {
+            return topicName.trim();
+        }
+        return "general";
+    }
+
+    private List<ArtefactRef> parseArtefactRefs(List<Map<String, Object>> raw) {
+        if (raw == null || raw.isEmpty()) {return List.of();}
+        try {
+            var json = objectMapper.writeValueAsString(raw);
+            return objectMapper.readValue(json, objectMapper.getTypeFactory()
+                                                            .constructCollectionType(List.class, ArtefactRef.class));
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    // --- Request DTOs ---
 
     public record CreateChannelRequest(String name, String topic, String description, boolean isPrivate) {}
 
@@ -481,17 +466,15 @@ public class ChatResource {
 
     public record ReactionRequest(String emoji) {}
 
-    public record AddMemberRequest(String memberId, String displayName) {}
+    public record AddMemberRequest(String memberId) {}
 
     public record SetPresenceRequest(String status) {}
 
-    public record UpdateCommitmentRequest(String state, String acknowledgedAt) {}
+    public record MarkReadRequest(Long lastReadMessageId) {}
 
     public record CreateTopicRequest(String name) {}
 
     public record UpdateTopicRequest(String name, String state) {}
 
     public record MergeTopicRequest(String targetTopicId) {}
-
-
 }
