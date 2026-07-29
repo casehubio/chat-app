@@ -3,11 +3,12 @@ import './qhorus-task-panel.js';
 import type { QhorusMessage } from '@casehubio/blocks-ui-channel-activity';
 import type { CommitmentRecord } from '../types.js';
 
-function makeCommand(id: string, sender: string, content: string, target?: string): QhorusMessage {
+function makeCommand(id: string, sender: string, content: string, opts?: { target?: string; correlationId?: string }): QhorusMessage {
   return {
     id, channelId: 'ch1', sender, content, messageType: 'COMMAND',
     actorType: 'AGENT', topic: 'General', replyCount: 0, artefactRefs: [],
-    createdAt: '2026-01-01T00:00:00Z', target,
+    createdAt: '2026-01-01T00:00:00Z', target: opts?.target,
+    correlationId: opts?.correlationId ?? id,
   };
 }
 
@@ -57,16 +58,16 @@ describe('QhorusTaskPanelElement', () => {
       ['c2', { state: 'FULFILLED', createdAt: '', updatedAt: '' }],
     ]);
     const el = await render(msgs, commitments);
-    const badges = el.shadowRoot!.querySelectorAll('.state-badge');
-    expect(badges[0]!.textContent!.trim()).toBe('OPEN');
-    expect(badges[1]!.textContent!.trim()).toBe('FULFILLED');
+    const pills = el.shadowRoot!.querySelectorAll('commitment-state-pill');
+    expect(pills[0]!.state).toBe('OPEN');
+    expect(pills[1]!.state).toBe('FULFILLED');
   });
 
   it('shows sender and target', async () => {
     const commitments = new Map<string, CommitmentRecord>([
       ['cmd1', { state: 'OPEN', createdAt: '', updatedAt: '' }],
     ]);
-    const el = await render([makeCommand('cmd1', 'alice', 'Do this', 'bob')], commitments);
+    const el = await render([makeCommand('cmd1', 'alice', 'Do this', { target: 'bob' })], commitments);
     const senderTarget = el.shadowRoot!.querySelector('.sender-target');
     expect(senderTarget!.textContent).toContain('alice');
     expect(senderTarget!.textContent).toContain('bob');
@@ -84,6 +85,29 @@ describe('QhorusTaskPanelElement', () => {
     const el = await render([makeCommand('cmd1', 'alice', 'Do this')], commitments, 'cmd1');
     const row = el.shadowRoot!.querySelector('.task-row');
     expect(row!.classList.contains('selected')).toBe(true);
+  });
+
+  it('looks up commitment by correlationId, not message id', async () => {
+    const commitments = new Map<string, CommitmentRecord>([
+      ['corr-1', { state: 'FULFILLED', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', resolvedAt: '2026-01-01T00:05:00Z' }],
+    ]);
+    const el = await render(
+      [makeCommand('msg-42', 'alice', 'Do this', { correlationId: 'corr-1' })],
+      commitments,
+    );
+    const pill = el.shadowRoot!.querySelector('commitment-state-pill');
+    expect(pill).not.toBeNull();
+    expect(pill!.state).toBe('FULFILLED');
+  });
+
+  it('renders commitment-range-bar in compact mode', async () => {
+    const commitments = new Map<string, CommitmentRecord>([
+      ['cmd1', { state: 'OPEN', deadline: '2026-02-01T00:00:00Z', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' }],
+    ]);
+    const el = await render([makeCommand('cmd1', 'alice', 'Do this')], commitments);
+    const rangeBar = el.shadowRoot!.querySelector('commitment-range-bar');
+    expect(rangeBar).not.toBeNull();
+    expect(rangeBar!.mode).toBe('compact');
   });
 
   it('dispatches message-selected on row click', async () => {

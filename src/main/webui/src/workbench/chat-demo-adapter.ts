@@ -210,37 +210,35 @@ export class ChatDemoAdapter {
     }
   }
 
+  private _parseCommitmentRow(r: unknown[]): CommitmentRecord {
+    const resolvedAt = (r[5] as string) || undefined;
+    const acknowledgedAt = (r[4] as string) || undefined;
+    const createdAt = r[6] as string;
+    const timestamps = [resolvedAt, acknowledgedAt, createdAt].filter((t): t is string => t != null);
+    const updatedAt = timestamps.reduce((a, b) => a > b ? a : b, createdAt);
+    return {
+      state: r[2] as CommitmentState,
+      deadline: (r[3] as string) || undefined,
+      acknowledgedAt,
+      resolvedAt,
+      createdAt,
+      updatedAt,
+    };
+  }
+
   private _applyCommitments(op: WsOp) {
     if (op.op === 'snapshot') {
       this.commitments = new Map();
       for (const r of op.rows ?? []) {
-        this.commitments.set(r[0] as string, {
-          state: r[2] as CommitmentState,
-          deadline: (r[3] as string) || undefined,
-          acknowledgedAt: (r[4] as string) || undefined,
-          createdAt: r[5] as string,
-          updatedAt: r[6] as string,
-        });
+        this.commitments.set(r[0] as string, this._parseCommitmentRow(r));
       }
     } else if (op.op === 'replace' && op.row) {
       this.commitments = new Map(this.commitments);
-      this.commitments.set(op.row[0] as string, {
-        state: op.row[2] as CommitmentState,
-        deadline: (op.row[3] as string) || undefined,
-        acknowledgedAt: (op.row[4] as string) || undefined,
-        createdAt: op.row[5] as string,
-        updatedAt: op.row[6] as string,
-      });
+      this.commitments.set(op.row[0] as string, this._parseCommitmentRow(op.row));
     } else if (op.op === 'append' && op.rows) {
       this.commitments = new Map(this.commitments);
       for (const r of op.rows) {
-        this.commitments.set(r[0] as string, {
-          state: r[2] as CommitmentState,
-          deadline: (r[3] as string) || undefined,
-          acknowledgedAt: (r[4] as string) || undefined,
-          createdAt: r[5] as string,
-          updatedAt: r[6] as string,
-        });
+        this.commitments.set(r[0] as string, this._parseCommitmentRow(r));
       }
     }
   }

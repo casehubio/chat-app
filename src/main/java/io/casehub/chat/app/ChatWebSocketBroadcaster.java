@@ -68,13 +68,13 @@ public class ChatWebSocketBroadcaster {
             Map.of("id", "messageId", "name", "Message ID", "type", "LABEL"),
             Map.of("id", "emoji", "name", "Emoji", "type", "LABEL"));
     private static final List<Map<String, Object>> COMMITMENT_COLUMNS = List.of(
-            Map.of("id", "commitmentId", "name", "ID", "type", "LABEL"),
+            Map.of("id", "correlationId", "name", "Correlation", "type", "LABEL"),
             Map.of("id", "channelId", "name", "Channel", "type", "LABEL"),
             Map.of("id", "state", "name", "State", "type", "LABEL"),
             Map.of("id", "deadline", "name", "Deadline", "type", "DATE"),
             Map.of("id", "acknowledgedAt", "name", "Acknowledged", "type", "DATE"),
-            Map.of("id", "createdAt", "name", "Created", "type", "DATE"),
-            Map.of("id", "updatedAt", "name", "Updated", "type", "DATE"));
+            Map.of("id", "resolvedAt", "name", "Resolved", "type", "DATE"),
+            Map.of("id", "createdAt", "name", "Created", "type", "DATE"));
     private static final List<Map<String, Object>> TOPIC_COLUMNS      = List.of(
             Map.of("id", "topicId", "name", "Topic ID", "type", "LABEL"),
             Map.of("id", "channelId", "name", "Channel", "type", "LABEL"),
@@ -343,7 +343,8 @@ public class ChatWebSocketBroadcaster {
                 c.correlationId(), c.channelId().toString(), c.state().name(),
                 c.expiresAt() != null ? c.expiresAt().toString() : "",
                 c.acknowledgedAt() != null ? c.acknowledgedAt().toString() : "",
-                c.createdAt().toString(), c.createdAt().toString());
+                c.resolvedAt() != null ? c.resolvedAt().toString() : "",
+                c.createdAt().toString());
     }
 
     private List<Object> messageToRow(Message msg) {

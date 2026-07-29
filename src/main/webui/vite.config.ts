@@ -4,13 +4,16 @@ import path from 'path';
 const PAGES = path.resolve(__dirname, '../../../../pages/packages');
 const BLOCKS = path.resolve(__dirname, '../../../../blocks-ui/packages');
 const CHANNEL_ACTIVITY = path.resolve(__dirname, '../../../../blocks-ui/components/channel-activity');
+const COMMITMENT_VIZ = path.resolve(__dirname, '../../../../blocks-ui/components/commitment-viz');
 
 export default defineConfig({
   root: 'src',
   server: { hmr: { overlay: false } },
   resolve: {
+    dedupe: ['lit', '@lit/reactive-element'],
     alias: [
       { find: '@casehubio/blocks-ui-channel-activity', replacement: path.resolve(CHANNEL_ACTIVITY, 'src') },
+      { find: '@casehubio/blocks-ui-commitment-viz', replacement: COMMITMENT_VIZ },
       { find: '@casehubio/pages-component/dist', replacement: path.resolve(PAGES, 'pages-component/src') },
       { find: '@casehubio/pages-data/dist', replacement: path.resolve(PAGES, 'pages-data/src') },
       { find: '@casehubio/pages-ui/dist', replacement: path.resolve(PAGES, 'pages-ui/src') },

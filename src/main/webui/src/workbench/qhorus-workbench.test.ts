@@ -644,6 +644,22 @@ describe('QhorusWorkbenchElement', () => {
     });
   });
 
+  it('passes renderContent callback to channel-feed for commitment range bars', async () => {
+    element._adapter.messages = [
+      { id: 'msg-1', channelId: 'ch-1', sender: 'alice', messageType: 'COMMAND', actorType: 'AGENT', content: 'Do this', topic: 'General', replyCount: 0, artefactRefs: [], createdAt: '2026-01-01T00:00:00Z', correlationId: 'corr-1', target: 'bob' },
+    ];
+    element._adapter.commitments = new Map([
+      ['corr-1', { state: 'OPEN', deadline: '2026-02-01T00:00:00Z', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' }],
+    ]);
+    element._selectedChannelId = 'ch-1';
+    element._onDataChange('messages');
+    element._onDataChange('commitments');
+    await element.updateComplete;
+
+    const feed = element.shadowRoot!.querySelector('channel-feed');
+    expect(feed.renderContent).toBeTypeOf('function');
+  });
+
   describe('swipe gestures', () => {
     it('has SwipeController attached', async () => {
       const el = await renderWorkbench() as any;

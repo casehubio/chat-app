@@ -1,10 +1,11 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { QhorusMessage } from '@casehubio/blocks-ui-channel-activity';
-import { commitmentStateCategory, isObligationCreating } from '@casehubio/blocks-ui-channel-activity';
-import { emitPagesEvent } from '@casehubio/blocks-ui-core';
+import { isObligationCreating } from '@casehubio/blocks-ui-channel-activity';
+import { emitPagesEvent, isTerminalCommitmentState } from '@casehubio/blocks-ui-core';
 import { ChannelEventTopics } from '@casehubio/blocks-ui-channel-activity';
 import type { CommitmentRecord } from '../types.js';
+import '@casehubio/blocks-ui-commitment-viz/src/commitment-range-bar.js';
 
 @customElement('qhorus-task-panel')
 export class QhorusTaskPanelElement extends LitElement {
@@ -51,20 +52,6 @@ export class QhorusTaskPanelElement extends LitElement {
       align-items: center;
       gap: var(--pages-space-2, 8px);
     }
-    .state-badge {
-      font-size: 10px;
-      font-weight: var(--pages-font-weight-medium, 500);
-      padding: 1px 6px;
-      border-radius: var(--pages-radius-sm, 4px);
-      text-transform: uppercase;
-    }
-    .badge-active { background: var(--pages-accent-3, #e0e7ff); color: var(--pages-accent-11, #3730a3); }
-    .badge-info { background: var(--pages-info-3, #dbeafe); color: var(--pages-info-11, #1e40af); }
-    .badge-success { background: var(--pages-success-3, #d1fae5); color: var(--pages-success-11, #065f46); }
-    .badge-danger { background: var(--pages-danger-3, #fee2e2); color: var(--pages-danger-11, #991b1b); }
-    .badge-neutral { background: var(--pages-neutral-3, #e5e5e5); color: var(--pages-neutral-9, #737373); }
-    .badge-transfer { background: var(--pages-info-3, #dbeafe); color: var(--pages-info-11, #1e40af); }
-    .badge-warning { background: var(--pages-warning-3, #fef3c7); color: var(--pages-warning-11, #92400e); }
     .sender-target {
       font-size: var(--pages-font-size-xs, 11px);
       color: var(--pages-neutral-9, #737373);
@@ -105,9 +92,7 @@ export class QhorusTaskPanelElement extends LitElement {
     return record.state === 'OPEN' && new Date(record.deadline) < new Date();
   }
 
-  private _isTerminal(state: string): boolean {
-    return ['FULFILLED', 'FAILED', 'DECLINED', 'DELEGATED', 'EXPIRED'].includes(state);
-  }
+
 
   private _formatTime(iso: string): string {
     const date = new Date(iso);
@@ -136,11 +121,11 @@ export class QhorusTaskPanelElement extends LitElement {
     const terminal: QhorusMessage[] = [];
 
     for (const cmd of commands) {
-      const record = this.commitments.get(cmd.id);
+      const record = this.commitments.get(cmd.correlationId ?? cmd.id);
       const state = record?.state ?? 'OPEN';
       if (this._isOverdue(record)) {
         overdue.push(cmd);
-      } else if (this._isTerminal(state)) {
+      } else if (isTerminalCommitmentState(state as any)) {
         terminal.push(cmd);
       } else {
         active.push(cmd);
@@ -167,9 +152,8 @@ export class QhorusTaskPanelElement extends LitElement {
   }
 
   private _renderRow(msg: QhorusMessage) {
-    const record = this.commitments.get(msg.id);
+    const record = this.commitments.get(msg.correlationId ?? msg.id);
     const state = record?.state ?? 'OPEN';
-    const category = commitmentStateCategory(state as any);
     const isOverdue = this._isOverdue(record);
     const isSelected = this.selectedMessageId === msg.id;
 
@@ -177,12 +161,20 @@ export class QhorusTaskPanelElement extends LitElement {
       <div class="task-row ${isOverdue ? 'overdue' : ''} ${isSelected ? 'selected' : ''}"
            @click=${() => this._onRowClick(msg)}>
         <div class="task-header">
-          <span class="state-badge badge-${category}">${state}</span>
+          <commitment-state-pill .state=${state} size="sm" showIcon></commitment-state-pill>
           <span class="timestamp">${this._formatTime(msg.createdAt)}</span>
           ${isOverdue && record?.deadline ? html`
             <span class="deadline-indicator">⚠ overdue</span>
           ` : nothing}
         </div>
+        <commitment-range-bar
+          .state=${state}
+          .createdAt=${record?.createdAt}
+          .resolvedAt=${record?.resolvedAt}
+          .acknowledgedAt=${record?.acknowledgedAt}
+          .deadline=${record?.deadline}
+          mode="compact">
+        </commitment-range-bar>
         <div class="content-preview">${msg.content.split('\n')[0]}</div>
         <div class="sender-target">
           ${msg.sender}${msg.target ? html` → ${msg.target}` : nothing}

@@ -352,36 +352,53 @@ describe('ChatDemoAdapter', () => {
     expect(adapter.messages[0]!.target).toBe('bot-b');
   });
 
-  it('processes commitments dataset snapshot', () => {
+  it('processes commitments dataset snapshot with enriched columns', () => {
     const adapter = new ChatDemoAdapter();
     adapter.applyOp({
       op: 'snapshot', dataset: 'commitments',
-      rows: [['c1', 'ch1', 'OPEN', '', '', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z']],
+      rows: [['c1', 'ch1', 'OPEN', '2026-02-01T00:00:00Z', '', '', '2026-01-01T00:00:00Z']],
     });
-    expect(adapter.commitments.get('c1')?.state).toBe('OPEN');
+    const record = adapter.commitments.get('c1');
+    expect(record?.state).toBe('OPEN');
+    expect(record?.deadline).toBe('2026-02-01T00:00:00Z');
+    expect(record?.resolvedAt).toBeUndefined();
+    expect(record?.createdAt).toBe('2026-01-01T00:00:00Z');
+    expect(record?.updatedAt).toBe('2026-01-01T00:00:00Z');
   });
 
-  it('processes commitments dataset replace', () => {
+  it('processes commitments dataset replace with resolvedAt', () => {
     const adapter = new ChatDemoAdapter();
     adapter.applyOp({
       op: 'snapshot', dataset: 'commitments',
-      rows: [['c1', 'ch1', 'OPEN', '', '', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z']],
+      rows: [['c1', 'ch1', 'OPEN', '', '', '', '2026-01-01T00:00:00Z']],
     });
     adapter.applyOp({
       op: 'replace', dataset: 'commitments',
       key: 'c1',
-      row: ['c1', 'ch1', 'FULFILLED', '', '', '2026-01-01T00:00:00Z', '2026-01-01T00:01:00Z'],
+      row: ['c1', 'ch1', 'FULFILLED', '', '', '2026-01-01T00:05:00Z', '2026-01-01T00:00:00Z'],
     });
-    expect(adapter.commitments.get('c1')?.state).toBe('FULFILLED');
+    const record = adapter.commitments.get('c1');
+    expect(record?.state).toBe('FULFILLED');
+    expect(record?.resolvedAt).toBe('2026-01-01T00:05:00Z');
+    expect(record?.updatedAt).toBe('2026-01-01T00:05:00Z');
   });
 
   it('processes commitments dataset append', () => {
     const adapter = new ChatDemoAdapter();
     adapter.applyOp({
       op: 'append', dataset: 'commitments',
-      rows: [['c1', 'ch1', 'OPEN', '', '', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z']],
+      rows: [['c1', 'ch1', 'OPEN', '', '', '', '2026-01-01T00:00:00Z']],
     });
     expect(adapter.commitments.get('c1')?.state).toBe('OPEN');
+  });
+
+  it('computes updatedAt as max of resolvedAt, acknowledgedAt, createdAt', () => {
+    const adapter = new ChatDemoAdapter();
+    adapter.applyOp({
+      op: 'snapshot', dataset: 'commitments',
+      rows: [['c1', 'ch1', 'ACKNOWLEDGED', '', '2026-01-01T00:03:00Z', '', '2026-01-01T00:00:00Z']],
+    });
+    expect(adapter.commitments.get('c1')?.updatedAt).toBe('2026-01-01T00:03:00Z');
   });
 
   // --- Topics dataset ---

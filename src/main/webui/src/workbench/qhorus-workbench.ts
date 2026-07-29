@@ -19,6 +19,8 @@ import { getToken, getIdentity, authenticatedFetch } from '../auth.js';
 import { injectTheme, applyThemeMode, DEFAULT_THEME } from '@casehubio/pages-ui-tokens';
 import type { CommitmentRecord } from '../types.js';
 import { ARTEFACT_SELECTED } from '../types.js';
+import { decorateCommitmentRanges } from '@casehubio/blocks-ui-commitment-viz/src/range-decorator.js';
+import type { RangeDecoration } from '@casehubio/blocks-ui-commitment-viz/src/types.js';
 import '../identity-widget.js';
 import { QhorusTaskPanelElement } from '../panels/qhorus-task-panel.js';
 import { QhorusCorrelationPanelElement } from '../panels/qhorus-correlation-panel.js';
@@ -341,6 +343,10 @@ export class QhorusWorkbenchElement extends LitElement {
     if (!this._selectedChannelId && this._channels.length > 0) {
       this._selectedChannelId = this._channels[0]!.id;
     }
+    if (dataset === 'commitments' || dataset === 'messages') {
+      this._commitmentDecorations = decorateCommitmentRanges(
+        this._filteredMessages(), this._commitments);
+    }
   };
 
   private _onChatEvent = (e: CustomEvent) => {
@@ -581,6 +587,23 @@ export class QhorusWorkbenchElement extends LitElement {
     </div>`;
   }
 
+  private _commitmentDecorations: RangeDecoration[] = [];
+
+  private _renderCommitmentBar = (msg: QhorusMessage) => {
+    const decoration = this._commitmentDecorations.find(d => d.startMessageId === msg.id);
+    if (!decoration) return undefined;
+    const record = this._commitments.get(decoration.correlationId);
+    if (!record) return undefined;
+    return html`<commitment-range-bar
+      .state=${record.state}
+      .createdAt=${record.createdAt}
+      .resolvedAt=${record.resolvedAt}
+      .acknowledgedAt=${record.acknowledgedAt}
+      .deadline=${record.deadline}
+      mode="compact">
+    </commitment-range-bar>`;
+  };
+
   private _renderChat() {
     const channelTopics = this._channelTopics();
     const showTopics = channelTopics.length > 1;
@@ -603,7 +626,8 @@ export class QhorusWorkbenchElement extends LitElement {
         .viewMode=${this._viewMode}
         .topics=${channelTopics}
         .selectedMessageId=${this._selectedMessageId}
-        .channelName=${this._channels.find(c => c.id === this._selectedChannelId)?.name}>
+        .channelName=${this._channels.find(c => c.id === this._selectedChannelId)?.name}
+        .renderContent=${this._renderCommitmentBar}>
       </channel-feed>
       <channel-input
         .channelId=${this._selectedChannelId}

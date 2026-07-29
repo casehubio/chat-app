@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@casehubio/blocks-ui-channel-activity": "*",
+    "@casehubio/blocks-ui-commitment-viz": "*",
     "@casehubio/blocks-ui-core": "*",
     "@casehubio/pages-component": "*",
     "@casehubio/pages-data": "*",
@@ -34,6 +35,7 @@
     "@casehubio/pages-ui-tokens": "portal:./.casehub-packages/packages/pages-ui-tokens",
     "@casehubio/pages-viz": "portal:./.casehub-packages/packages/pages-viz",
     "@casehubio/blocks-ui-channel-activity": "portal:./.casehub-packages/packages/channel-activity",
+    "@casehubio/blocks-ui-commitment-viz": "portal:./.casehub-packages/packages/commitment-viz",
     "@casehubio/blocks-ui-core": "portal:./.casehub-packages/packages/blocks-ui-core"
   },
   "devDependencies": {

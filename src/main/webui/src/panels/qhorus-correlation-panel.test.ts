@@ -52,15 +52,26 @@ describe('QhorusCorrelationPanelElement', () => {
     expect(el.shadowRoot!.textContent).toContain('Select a message');
   });
 
-  it('shows commitment badge on root COMMAND', async () => {
+  it('renders commitment-state-pill on obligation-creating message', async () => {
     const msgs = [makeMsg('cmd1', 'alice', 'Do it', 'COMMAND', 'cmd1')];
     const commitments = new Map<string, CommitmentRecord>([
       ['cmd1', { state: 'OPEN' as CommitmentState, createdAt: '', updatedAt: '' }],
     ]);
     const el = await render(msgs, commitments, 'cmd1');
-    const badge = el.shadowRoot!.querySelector('.commitment-badge');
-    expect(badge).not.toBeNull();
-    expect(badge!.textContent!.trim()).toBe('OPEN');
+    const pill = el.shadowRoot!.querySelector('commitment-state-pill');
+    expect(pill).not.toBeNull();
+    expect(pill!.state).toBe('OPEN');
+  });
+
+  it('looks up commitment by correlationId, not message id', async () => {
+    const msgs = [makeMsg('msg-99', 'alice', 'Do it', 'COMMAND', 'corr-7')];
+    const commitments = new Map<string, CommitmentRecord>([
+      ['corr-7', { state: 'FULFILLED' as CommitmentState, createdAt: '', updatedAt: '', resolvedAt: '2026-01-01T10:05:00Z' }],
+    ]);
+    const el = await render(msgs, commitments, 'msg-99');
+    const pill = el.shadowRoot!.querySelector('commitment-state-pill');
+    expect(pill).not.toBeNull();
+    expect(pill!.state).toBe('FULFILLED');
   });
 
   it('shows delegation indicator on HANDOFF messages', async () => {

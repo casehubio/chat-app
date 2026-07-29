@@ -1,10 +1,11 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { QhorusMessage } from '@casehubio/blocks-ui-channel-activity';
-import { messageTypeCategory, commitmentStateCategory, isObligationCreating } from '@casehubio/blocks-ui-channel-activity';
+import { messageTypeCategory, isObligationCreating } from '@casehubio/blocks-ui-channel-activity';
 import { emitPagesEvent } from '@casehubio/blocks-ui-core';
 import { ChannelEventTopics } from '@casehubio/blocks-ui-channel-activity';
 import type { CommitmentRecord } from '../types.js';
+import '@casehubio/blocks-ui-core';
 
 @customElement('qhorus-correlation-panel')
 export class QhorusCorrelationPanelElement extends LitElement {
@@ -64,14 +65,7 @@ export class QhorusCorrelationPanelElement extends LitElement {
     .badge-warning { background: var(--pages-warning-3, #fef3c7); color: var(--pages-warning-11, #92400e); }
     .badge-transfer { background: var(--pages-info-3, #dbeafe); color: var(--pages-info-11, #1e40af); }
     .badge-telemetry { background: var(--pages-neutral-3, #e5e5e5); color: var(--pages-neutral-9, #737373); }
-    .commitment-badge {
-      font-size: 10px;
-      padding: 1px 6px;
-      border-radius: var(--pages-radius-sm, 4px);
-    }
-    .commitment-active { background: var(--pages-accent-3, #e0e7ff); color: var(--pages-accent-11, #3730a3); }
-    .commitment-success { background: var(--pages-success-3, #d1fae5); color: var(--pages-success-11, #065f46); }
-    .commitment-danger { background: var(--pages-danger-3, #fee2e2); color: var(--pages-danger-11, #991b1b); }
+
     .node-content {
       font-size: var(--pages-font-size-sm, 13px);
       color: var(--pages-neutral-11, #333);
@@ -201,8 +195,7 @@ export class QhorusCorrelationPanelElement extends LitElement {
   private _renderNode(msg: QhorusMessage) {
     const category = messageTypeCategory(msg.messageType);
     const isSelected = this.selectedMessageId === msg.id;
-    const record = this.commitments.get(msg.id);
-    const commitCategory = record ? commitmentStateCategory(record.state as any) : undefined;
+    const record = msg.correlationId ? this.commitments.get(msg.correlationId) : undefined;
 
     return html`
       <div class="flow-node ${isSelected ? 'selected' : ''}" @click=${() => this._onNodeClick(msg)}>
@@ -210,8 +203,8 @@ export class QhorusCorrelationPanelElement extends LitElement {
           <span class="actor-icon">${this._actorIcon(msg.actorType)}</span>
           <span class="sender">${msg.sender}</span>
           <span class="speech-act-badge badge-${category}">${msg.messageType}</span>
-          ${isObligationCreating(msg.messageType) && commitCategory ? html`
-            <span class="commitment-badge commitment-${commitCategory}">${record!.state}</span>
+          ${isObligationCreating(msg.messageType) && record ? html`
+            <commitment-state-pill .state=${record.state} size="sm"></commitment-state-pill>
           ` : nothing}
           <span class="node-time">${this._formatTime(msg.createdAt)}</span>
         </div>

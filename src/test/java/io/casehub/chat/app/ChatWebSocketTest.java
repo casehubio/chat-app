@@ -270,6 +270,70 @@ class ChatWebSocketTest {
         }
     }
 
+    @Test
+    void commitmentColumnsIncludeResolvedAt() throws Exception {
+        final var future = new CompletableFuture<String>();
+        try (Session session = connectAndCapture(future)) {
+            final String raw = future.get(5, TimeUnit.SECONDS);
+            final List<Map<String, Object>> snapshots = objectMapper.readValue(raw,
+                                                                               new TypeReference<>() {});
+
+            final var commitments = snapshots.stream()
+                                             .filter(s -> "commitments".equals(s.get("dataset")))
+                                             .findFirst().orElseThrow();
+
+            @SuppressWarnings("unchecked") final var columns = (List<Map<String, Object>>) commitments.get("columns");
+            final var columnIds = columns.stream().map(c -> (String) c.get("id")).toList();
+
+            assertThat(columnIds).containsExactly(
+                    "correlationId", "channelId", "state", "deadline",
+                    "acknowledgedAt", "resolvedAt", "createdAt");
+            assertThat(columnIds).doesNotContain("updatedAt");
+        }
+    }
+
+    @Test
+    void commitmentRowIncludesResolvedAt() throws Exception {
+        final String token = obtainToken("commitment-user");
+        String channelId = RestAssured.given()
+                                      .contentType("application/json")
+                                      .header("Authorization", "Bearer " + token)
+                                      .body(Map.of("name", "commit-test-" + System.nanoTime(), "description", "test"))
+                                      .post("/api/channels")
+                                      .then().statusCode(200)
+                                      .extract().path("id");
+
+        RestAssured.given()
+                   .contentType("application/json")
+                   .header("Authorization", "Bearer " + token)
+                   .body(Map.of("text", "Do the thing", "messageType", "COMMAND",
+                                "target", "someone"))
+                   .post("/api/channels/" + channelId + "/messages")
+                   .then().statusCode(200);
+
+        final var future = new CompletableFuture<String>();
+        try (Session session = connectAndCapture(future)) {
+            final String raw = future.get(5, TimeUnit.SECONDS);
+            final List<Map<String, Object>> snapshots = objectMapper.readValue(raw,
+                                                                               new TypeReference<>() {});
+
+            final var commitments = snapshots.stream()
+                                             .filter(s -> "commitments".equals(s.get("dataset")))
+                                             .findFirst().orElseThrow();
+
+            @SuppressWarnings("unchecked") final var rows = (List<List<String>>) commitments.get("rows");
+            assertThat(rows).isNotEmpty();
+
+            final var row = rows.get(rows.size() - 1);
+            assertThat(row).hasSize(7);
+            assertThat(row.get(0)).isNotBlank();
+            assertThat(row.get(2)).isEqualTo("OPEN");
+            assertThat(row.get(5)).isEmpty();
+            assertThat(row.get(6)).isNotBlank();
+        }
+    }
+
+
     private String obtainToken(final String name) {
         return RestAssured.given()
                 .contentType("application/json")
