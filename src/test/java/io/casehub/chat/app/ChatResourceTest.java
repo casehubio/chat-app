@@ -36,8 +36,8 @@ class ChatResourceTest {
                             .header("Authorization", "Bearer " + token)
                             .body(Map.of("name", "test-" + System.nanoTime(), "topic", "Test", "description", "Desc", "isPrivate", false))
                             .post("/api/channels")
-                            .then().statusCode(200)
-                            .extract().path("id");
+                            .then().statusCode(201)
+                            .extract().path("channelId");
     }
 
     private String postMessageAndGetId(String text) {
@@ -199,6 +199,7 @@ class ChatResourceTest {
 
         given()
                 .header("Authorization", "Bearer " + token)
+                .queryParam("force", true)
                 .delete("/api/channels/{id}", channelId)
                 .then().statusCode(204);
 

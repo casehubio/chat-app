@@ -174,8 +174,8 @@ class ChatWebSocketTest {
                                           .header("Authorization", "Bearer " + token)
                                           .body(Map.of("name", "ws-test-" + System.nanoTime(), "description", "test"))
                                           .post("/api/channels")
-                                          .then().statusCode(200)
-                                          .extract().path("id");
+                                          .then().statusCode(201)
+                                          .extract().path("channelId");
 
             RestAssured.given()
                        .contentType("application/json")
@@ -300,8 +300,8 @@ class ChatWebSocketTest {
                                       .header("Authorization", "Bearer " + token)
                                       .body(Map.of("name", "commit-test-" + System.nanoTime(), "description", "test"))
                                       .post("/api/channels")
-                                      .then().statusCode(200)
-                                      .extract().path("id");
+                                      .then().statusCode(201)
+                                      .extract().path("channelId");
 
         RestAssured.given()
                    .contentType("application/json")

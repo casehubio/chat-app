@@ -3,11 +3,7 @@ package io.casehub.chat.app;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.platform.api.identity.CurrentPrincipal;
-import io.casehub.qhorus.api.channel.Channel;
-import io.casehub.qhorus.api.channel.ChannelCreateRequest;
-import io.casehub.qhorus.api.channel.ChannelManager;
 import io.casehub.qhorus.api.channel.ChannelMembership;
-import io.casehub.qhorus.api.channel.ChannelReader;
 import io.casehub.qhorus.api.channel.MembershipManager;
 import io.casehub.qhorus.api.channel.PresenceStatus;
 import io.casehub.qhorus.api.channel.PresenceTracker;
@@ -46,7 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-@Path("/api")
+@Path("/api/channels")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
@@ -57,10 +53,6 @@ public class ChatResource {
 
     @Inject
     ConsumerMessaging        messaging;
-    @Inject
-    ChannelManager           channels;
-    @Inject
-    ChannelReader            channelReader;
     @Inject
     ReactionManager          reactions;
     @Inject
@@ -84,37 +76,10 @@ public class ChatResource {
     @Inject
     ObjectMapper             objectMapper;
 
-    // --- Channels ---
-
-    @POST
-    @Path("/channels")
-    public Response createChannel(CreateChannelRequest request) {
-        var channel = channels.create(ChannelCreateRequest.builder(request.name())
-                                                          .description(request.description() != null ? request.description() : "")
-                                                          .build());
-        broadcaster.broadcastChannelAppend(channel);
-        return Response.ok(channel).build();
-    }
-
-    @DELETE
-    @Path("/channels/{channelId}")
-    public Response deleteChannel(@PathParam("channelId") String channelId) {
-        var uuid = UUID.fromString(channelId);
-        channels.delete(uuid, true);
-        broadcaster.broadcastChannelRemove(uuid);
-        return Response.noContent().build();
-    }
-
-    @GET
-    @Path("/channels")
-    public List<Channel> listChannels() {
-        return channelReader.listAll();
-    }
-
     // --- Messages ---
 
     @POST
-    @Path("/channels/{channelId}/messages")
+    @Path("/{channelId}/messages")
     public Response postMessage(@PathParam("channelId") String channelId,
                                 PostMessageRequest request) {
         var channelUuid = UUID.fromString(channelId);
@@ -150,7 +115,7 @@ public class ChatResource {
     }
 
     @GET
-    @Path("/channels/{channelId}/messages")
+    @Path("/{channelId}/messages")
     public List<Message> listMessages(@PathParam("channelId") String channelId,
                                       @QueryParam("since") String since) {
         var  channelUuid = UUID.fromString(channelId);
@@ -168,7 +133,7 @@ public class ChatResource {
     // --- Replies ---
 
     @POST
-    @Path("/channels/{channelId}/messages/{messageId}/replies")
+    @Path("/{channelId}/messages/{messageId}/replies")
     public Response postReply(@PathParam("channelId") String channelId,
                               @PathParam("messageId") String messageId,
                               PostMessageRequest request) {
@@ -211,7 +176,7 @@ public class ChatResource {
     // --- Reactions ---
 
     @POST
-    @Path("/channels/{channelId}/messages/{messageId}/reactions")
+    @Path("/{channelId}/messages/{messageId}/reactions")
     public Response addReaction(@PathParam("channelId") String channelId,
                                 @PathParam("messageId") String messageId,
                                 ReactionRequest request) {
@@ -221,7 +186,7 @@ public class ChatResource {
     }
 
     @DELETE
-    @Path("/channels/{channelId}/messages/{messageId}/reactions/{emoji}")
+    @Path("/{channelId}/messages/{messageId}/reactions/{emoji}")
     public Response removeReaction(@PathParam("channelId") String channelId,
                                    @PathParam("messageId") String messageId,
                                    @PathParam("emoji") String emoji) {
@@ -231,7 +196,7 @@ public class ChatResource {
     }
 
     @GET
-    @Path("/channels/{channelId}/messages/{messageId}/reactions")
+    @Path("/{channelId}/messages/{messageId}/reactions")
     public List<String> listReactions(@PathParam("channelId") String channelId,
                                       @PathParam("messageId") String messageId) {
         return reactionReader.findByMessage(Long.parseLong(messageId)).stream()
@@ -242,13 +207,13 @@ public class ChatResource {
     // --- Members ---
 
     @GET
-    @Path("/channels/{channelId}/members")
+    @Path("/{channelId}/members")
     public List<ChannelMembership> listMembers(@PathParam("channelId") String channelId) {
         return memberReader.findByChannel(UUID.fromString(channelId));
     }
 
     @POST
-    @Path("/channels/{channelId}/members")
+    @Path("/{channelId}/members")
     public Response addMember(@PathParam("channelId") String channelId,
                               AddMemberRequest request) {
         var channelUuid = UUID.fromString(channelId);
@@ -258,7 +223,7 @@ public class ChatResource {
     }
 
     @DELETE
-    @Path("/channels/{channelId}/members/{memberId}")
+    @Path("/{channelId}/members/{memberId}")
     public Response removeMember(@PathParam("channelId") String channelId,
                                  @PathParam("memberId") String memberId) {
         var channelUuid = UUID.fromString(channelId);
@@ -267,33 +232,10 @@ public class ChatResource {
         return Response.ok().build();
     }
 
-    // --- Presence ---
-
-    @GET
-    @Path("/presence/{memberId}")
-    public Map<String, String> getPresence(@PathParam("memberId") String memberId) {
-        var p = presence.getPresence(memberId);
-        return Map.of("memberId", memberId, "status", p.status().name());
-    }
-
-    @PUT
-    @Path("/presence/{memberId}")
-    public Response setPresence(@PathParam("memberId") String memberId,
-                                SetPresenceRequest request) {
-        try {
-            var status = PresenceStatus.valueOf(request.status());
-            presence.heartbeat(status, null);
-            broadcaster.broadcastPresenceReplace(memberId, status);
-        } catch (IllegalArgumentException e) {
-            throw new jakarta.ws.rs.BadRequestException("Invalid status: " + request.status());
-        }
-        return Response.ok().build();
-    }
-
     // --- Read tracking ---
 
     @PUT
-    @Path("/channels/{channelId}/read")
+    @Path("/{channelId}/read")
     public Response markRead(@PathParam("channelId") String channelId,
                              MarkReadRequest request) {
         var channelUuid = UUID.fromString(channelId);
@@ -305,7 +247,7 @@ public class ChatResource {
     // --- Commitments ---
 
     @GET
-    @Path("/channels/{channelId}/commitments")
+    @Path("/{channelId}/commitments")
     public List<Commitment> listCommitments(@PathParam("channelId") String channelId) {
         return commitmentReader.findByChannel(UUID.fromString(channelId));
     }
@@ -313,7 +255,7 @@ public class ChatResource {
     // --- Correlation ---
 
     @GET
-    @Path("/channels/{channelId}/correlation/{correlationId}")
+    @Path("/{channelId}/correlation/{correlationId}")
     public List<Message> correlationChain(@PathParam("channelId") String channelId,
                                           @PathParam("correlationId") String correlationId) {
         return messaging.findAllByCorrelationId(correlationId);
@@ -322,7 +264,7 @@ public class ChatResource {
     // --- Topics ---
 
     @POST
-    @Path("/channels/{channelId}/topics")
+    @Path("/{channelId}/topics")
     public Response createTopic(@PathParam("channelId") String channelId,
                                 CreateTopicRequest request) {
         var channelUuid = UUID.fromString(channelId);
@@ -346,13 +288,13 @@ public class ChatResource {
     }
 
     @GET
-    @Path("/channels/{channelId}/topics")
+    @Path("/{channelId}/topics")
     public List<TopicSummary> listTopics(@PathParam("channelId") String channelId) {
         return topics.listTopics(UUID.fromString(channelId));
     }
 
     @PUT
-    @Path("/channels/{channelId}/topics/{topicId}")
+    @Path("/{channelId}/topics/{topicId}")
     public Response updateTopic(@PathParam("channelId") String channelId,
                                 @PathParam("topicId") String topicId,
                                 UpdateTopicRequest request) {
@@ -385,7 +327,7 @@ public class ChatResource {
     }
 
     @POST
-    @Path("/channels/{channelId}/topics/{topicId}/merge")
+    @Path("/{channelId}/topics/{topicId}/merge")
     public Response mergeTopic(@PathParam("channelId") String channelId,
                                @PathParam("topicId") String topicId,
                                MergeTopicRequest request) {
@@ -458,8 +400,6 @@ public class ChatResource {
 
     // --- Request DTOs ---
 
-    public record CreateChannelRequest(String name, String topic, String description, boolean isPrivate) {}
-
     public record PostMessageRequest(String text, String messageType, String actorType,
                                      String target, List<Map<String, Object>> artefactRefs,
                                      String topic, String topicId) {}
@@ -467,8 +407,6 @@ public class ChatResource {
     public record ReactionRequest(String emoji) {}
 
     public record AddMemberRequest(String memberId) {}
-
-    public record SetPresenceRequest(String status) {}
 
     public record MarkReadRequest(Long lastReadMessageId) {}
 
