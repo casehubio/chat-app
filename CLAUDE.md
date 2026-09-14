@@ -1,11 +1,11 @@
 # chat-app Workspace
 **Name:** casehub-chat-app
-**Project repo:** /Users/mdproctor/claude/casehub/chat-app
+**Project repo:** /Users/mdproctor/claude/casehub/slots/194/chat-app
 **Workspace type:** public
 
 ## Session Start
 
-Run `add-dir /Users/mdproctor/claude/casehub/chat-app` before any other work.
+Run `add-dir /Users/mdproctor/claude/casehub/slots/194/chat-app` before any other work.
 
 ## Artifact Locations
 
