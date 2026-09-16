@@ -490,6 +490,28 @@ export class QhorusWorkbenchElement extends LitElement {
         body: JSON.stringify({ spaceId, position }),
       }).catch(e => console.error('Move channel failed:', e));
     }
+    if (topic === ChannelEventTopics.CORRECT_MESSAGE) {
+      const { messageId, correctedContent } = payload as { messageId: string; correctedContent: string };
+      const channelId = this._channels.selectedChannelId;
+      if (channelId && messageId) {
+        authenticatedFetch(`/api/chat/${channelId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: correctedContent, correctsMessageId: messageId }),
+        }).catch(e => console.error('Correction failed:', e));
+      }
+    }
+    if (topic === ChannelEventTopics.RETRACT_MESSAGE) {
+      const { messageId, reason } = payload as { messageId: string; reason?: string };
+      const channelId = this._channels.selectedChannelId;
+      if (channelId && messageId) {
+        authenticatedFetch(`/api/chat/${channelId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ correctsMessageId: messageId, retraction: true, reason }),
+        }).catch(e => console.error('Retraction failed:', e));
+      }
+    }
   };
 
   private async _sendMessage(payload: SendMessagePayload) {
@@ -607,7 +629,8 @@ export class QhorusWorkbenchElement extends LitElement {
         .selectedMessageId=${this._commitments.selectedMessageId}
         .channelName=${this._channels.channels.find(c => c.id === this._channels.selectedChannelId)?.name}
         .renderContent=${this._renderCommitmentBar}
-        .messageHighlights=${this._computeHighlights()}>
+        .messageHighlights=${this._computeHighlights()}
+        .currentActorId=${getIdentity() ?? ''}>
       </blocks-channel-feed>
       <blocks-channel-input
         .channelId=${this._channels.selectedChannelId}

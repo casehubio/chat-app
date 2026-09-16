@@ -1044,4 +1044,11 @@ describe('QhorusWorkbenchElement', () => {
       expect(mainPanel.getAttribute('inert')).not.toBeNull();
     });
   });
+
+  it('passes currentActorId to channel feed', async () => {
+    const el = await renderWorkbench();
+    await el.updateComplete;
+    const feed = el.shadowRoot!.querySelector('blocks-channel-feed') as any;
+    expect(feed?.currentActorId).toBeDefined();
+  });
 });
