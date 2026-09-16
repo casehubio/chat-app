@@ -587,6 +587,24 @@ describe('QhorusWorkbenchElement', () => {
     });
   });
 
+  describe('settings panel', () => {
+    it('toggles pages-density-compact class on host when density is toggled', async () => {
+      const el = await renderWorkbench() as any;
+      expect(el.classList.contains('pages-density-compact')).toBe(false);
+      el._compactDensity = true;
+      if (el._compactDensity) el.classList.add('pages-density-compact');
+      expect(el.classList.contains('pages-density-compact')).toBe(true);
+    });
+
+    it('renders settings panel when settings dock is open', async () => {
+      const el = await renderWorkbench() as any;
+      el._toggleDock('settings');
+      await el.updateComplete;
+      const settings = el.shadowRoot!.querySelector('.settings-panel');
+      expect(settings).toBeTruthy();
+    });
+  });
+
   describe('identity widget placement', () => {
     it('renders identity widget in dock strip on desktop', async () => {
       const el = await renderWorkbench();

@@ -75,6 +75,7 @@ export class QhorusWorkbenchElement extends LitElement {
   @state() private _mode: LayoutMode = 'desktop';
   @state() private _tabletTab: string = 'nav';
   @state() private _drawerOpen: string | null = null;
+  @state() private _compactDensity = false;
   @state() private _selectedArtefactRef?: ArtefactRef;
 
   private static readonly DOCK_ITEMS = [
@@ -269,6 +270,16 @@ export class QhorusWorkbenchElement extends LitElement {
       animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    /* --- settings panel --- */
+    .settings-panel { padding: 16px; }
+    .settings-heading { margin: 0 0 16px; font-size: 14px; font-weight: 600; }
+    .settings-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 0; font-size: 13px; cursor: pointer;
+    }
+    .settings-section { margin-top: 24px; }
+    .settings-subheading { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--pages-neutral-9); }
+    .settings-placeholder { font-size: 12px; color: var(--pages-neutral-8); font-style: italic; }
   `;
 
   configure(props: Record<string, unknown>) {
@@ -286,7 +297,11 @@ export class QhorusWorkbenchElement extends LitElement {
 
   private async _loadLayout() {
     const saved = await this._layoutStore.load('workbench');
-    if (saved) this._layoutState = saved;
+    if (saved) {
+      this._layoutState = saved;
+      this._compactDensity = !!(saved.panels as any)?.compactDensity;
+      if (this._compactDensity) this.classList.add('pages-density-compact');
+    }
   }
 
   override firstUpdated() {
@@ -598,8 +613,37 @@ export class QhorusWorkbenchElement extends LitElement {
         .selectedMessageId=${this._commitments.selectedMessageId}></blocks-channel-correlation-panel>`;
       case 'artifacts': return html`<qhorus-artifact-panel
         .selectedArtefactRef=${this._selectedArtefactRef}></qhorus-artifact-panel>`;
+      case 'settings': return this._renderSettings();
       default: return nothing;
     }
+  }
+
+  private _renderSettings() {
+    return html`
+      <div class="settings-panel">
+        <h3 class="settings-heading">Settings</h3>
+        <label class="settings-row">
+          <span>Compact density</span>
+          <input type="checkbox" .checked=${this._compactDensity}
+            @change=${(e: Event) => {
+              this._compactDensity = (e.target as HTMLInputElement).checked;
+              if (this._compactDensity) {
+                this.classList.add('pages-density-compact');
+              } else {
+                this.classList.remove('pages-density-compact');
+              }
+              this._layoutStore.save('workbench', {
+                ...this._layoutState,
+                panels: { ...this._layoutState.panels, compactDensity: this._compactDensity },
+              });
+            }} />
+        </label>
+        <div class="settings-section">
+          <h4 class="settings-subheading">Theme Designer</h4>
+          <p class="settings-placeholder">Coming soon</p>
+        </div>
+      </div>
+    `;
   }
 
   override render() {
@@ -610,7 +654,7 @@ export class QhorusWorkbenchElement extends LitElement {
 
   private _renderDesktop() {
     const leftPanels = ['nav', 'tasks'].filter(p => this._isDockOpen(p));
-    const rightPanels = ['members', 'correlation', 'artifacts'].filter(p => this._isDockOpen(p));
+    const rightPanels = ['members', 'correlation', 'artifacts', 'settings'].filter(p => this._isDockOpen(p));
     return html`
       ${this._renderDockStrip()}
       ${leftPanels.map(p => html`<div class="nav-panel">${this._renderPanel(p)}</div>`)}
