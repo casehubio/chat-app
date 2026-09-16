@@ -23,7 +23,7 @@ import {
   renderMarkdown,
 } from '@casehubio/blocks-ui-channel-activity';
 import type { SendMessagePayload, ArtefactRef, CreateSpacePayload, RenameSpacePayload, DeleteSpacePayload, MoveChannelToSpacePayload } from '@casehubio/blocks-ui-channel-activity';
-import type { DockItem, LayoutState } from '@casehubio/pages-component';
+import type { LayoutState } from '@casehubio/pages-component';
 import { createLocalLayoutStore } from '@casehubio/pages-runtime/layout-store.js';
 import { getToken, getIdentity, authenticatedFetch } from '../auth.js';
 import { applyTheme } from '@casehubio/pages-ui-tokens';
@@ -38,6 +38,13 @@ void ChannelFeedElement; void ChannelNavElement; void ChannelMemberPanelElement;
 void ChannelTaskPanelElement; void ChannelCorrelationPanelElement; void QhorusArtifactPanelElement;
 
 type LayoutMode = 'desktop' | 'tablet' | 'phone';
+
+const ICON_CHAT = html`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+const ICON_PEOPLE = html`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+const ICON_CHECKLIST = html`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`;
+const ICON_LINK = html`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+const ICON_PAPERCLIP = html`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>`;
+const ICON_GEAR = html`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
 
 @customElement('qhorus-workbench')
 export class QhorusWorkbenchElement extends LitElement {
@@ -68,15 +75,14 @@ export class QhorusWorkbenchElement extends LitElement {
   @state() private _mode: LayoutMode = 'desktop';
   @state() private _tabletTab: string = 'nav';
   @state() private _drawerOpen: string | null = null;
-  @state() private _darkMode = false;
   @state() private _selectedArtefactRef?: ArtefactRef;
 
-  private static readonly DOCK_ITEMS: DockItem[] = [
-    { icon: '💬', label: 'Channels', panelId: 'nav', defaultOpen: true },
-    { icon: '👥', label: 'Members', panelId: 'members', defaultOpen: true },
-    { icon: '📋', label: 'Tasks', panelId: 'tasks', defaultOpen: false },
-    { icon: '🔗', label: 'Correlation', panelId: 'correlation', defaultOpen: false },
-    { icon: '📎', label: 'Artifacts', panelId: 'artifacts', defaultOpen: false },
+  private static readonly DOCK_ITEMS = [
+    { icon: ICON_CHAT, label: 'Channels', panelId: 'nav', defaultOpen: true },
+    { icon: ICON_PEOPLE, label: 'Members', panelId: 'members', defaultOpen: true },
+    { icon: ICON_CHECKLIST, label: 'Tasks', panelId: 'tasks', defaultOpen: false },
+    { icon: ICON_LINK, label: 'Correlation', panelId: 'correlation', defaultOpen: false },
+    { icon: ICON_PAPERCLIP, label: 'Artifacts', panelId: 'artifacts', defaultOpen: false },
   ];
 
   private _swipeController = new SwipeController(this, {
@@ -132,22 +138,23 @@ export class QhorusWorkbenchElement extends LitElement {
     .dock-strip {
       display: flex;
       flex-direction: column;
-      width: 48px;
+      width: 40px;
       flex-shrink: 0;
       background: var(--pages-neutral-2, #f0f0f0);
       border-right: 1px solid var(--pages-neutral-4, #e0e0e0);
-      padding: 8px 0;
-      gap: 4px;
+      padding: 6px 0;
+      gap: 2px;
       align-items: center;
     }
     .dock-strip .spacer { flex: 1; }
     .dock-btn {
-      width: 36px; height: 36px;
+      width: 32px; height: 32px;
       display: flex; align-items: center; justify-content: center;
       background: none; border: none; border-radius: 6px;
-      cursor: pointer; font-size: 18px;
+      cursor: pointer;
       color: var(--pages-neutral-9, #888);
     }
+    .dock-btn svg { width: 20px; height: 20px; }
     .dock-btn:hover { background: var(--pages-neutral-3, #e8e8e8); color: var(--pages-neutral-11, #333); }
     .dock-btn.active { color: var(--pages-accent-9, #007bff); background: var(--pages-neutral-3, #e8e8e8); }
     /* --- phone header bar --- */
@@ -266,7 +273,6 @@ export class QhorusWorkbenchElement extends LitElement {
     super.connectedCallback();
     this.addEventListener('pages-event', this._onChatEvent as EventListener);
     this._setupMediaQueries();
-    this._initTheme();
     this._loadLayout();
   }
 
@@ -298,21 +304,6 @@ export class QhorusWorkbenchElement extends LitElement {
         }
       });
     }
-  }
-
-  private _initTheme() {
-    this.updateComplete.then(() => {
-      this._applyTheme();
-    });
-  }
-
-  private _applyTheme() {
-    applyTheme(this._darkMode ? 'casehub-dark' : 'casehub-light', this);
-  }
-
-  private _toggleTheme() {
-    this._darkMode = !this._darkMode;
-    this._applyTheme();
   }
 
   override disconnectedCallback() {
@@ -569,12 +560,18 @@ export class QhorusWorkbenchElement extends LitElement {
       <div class="dock-strip">
         ${QhorusWorkbenchElement.DOCK_ITEMS.map(item => html`
           <button class="dock-btn ${this._isDockOpen(item.panelId) ? 'active' : ''}"
-            title=${item.label} @click=${() => this._toggleDock(item.panelId)}>${item.icon}</button>
+            title=${item.label} aria-label=${item.label}
+            @click=${() => this._toggleDock(item.panelId)}>${item.icon}</button>
         `)}
+        <button class="dock-btn" title="Settings" aria-label="Settings"
+          @click=${() => this._toggleDock('settings')}>${ICON_GEAR}</button>
         <span class="spacer"></span>
-        <button class="dock-btn"
-          title="${this._darkMode ? 'Light mode' : 'Dark mode'}"
-          @click=${this._toggleTheme}>${this._darkMode ? '☀️' : '🌙'}</button>
+        <pages-theme-picker compact
+          @theme-change=${(e: CustomEvent) => {
+            const { family, mode } = e.detail;
+            applyTheme(family ?? 'casehub', mode ?? 'light');
+          }}>
+        </pages-theme-picker>
       </div>
     `;
   }
@@ -633,7 +630,6 @@ export class QhorusWorkbenchElement extends LitElement {
       { id: 'artifacts', label: '📎 Arts' },
     ];
     return html`
-      ${this._renderDockStrip()}
       <div class="sidebar-with-tabs">
         <div class="tab-switcher">
           ${tabItems.map(t => { const count = this._tabletCount(t.id); return html`

@@ -554,37 +554,36 @@ describe('QhorusWorkbenchElement', () => {
     globalThis.WebSocket = OriginalWebSocket;
   });
 
-  describe('theme toggle', () => {
-    it('starts in light mode with pages-theme-casehub-light class', async () => {
+  describe('dock strip modernization', () => {
+    it('renders SVG icons instead of emoji', async () => {
       const el = await renderWorkbench();
-      await el.updateComplete;
-      expect(el.classList.contains('pages-theme-casehub-light')).toBe(true);
-      expect(el.classList.contains('pages-theme-casehub-dark')).toBe(false);
+      const dockBtns = el.shadowRoot!.querySelectorAll('.dock-strip .dock-btn');
+      const svgBtns = Array.from(dockBtns).filter(btn => btn.querySelector('svg'));
+      expect(svgBtns.length).toBeGreaterThanOrEqual(5);
     });
 
-    it('toggles to dark mode', async () => {
-      const el = await renderWorkbench() as any;
-      el._toggleTheme();
-      await el.updateComplete;
-      expect(el.classList.contains('pages-theme-casehub-dark')).toBe(true);
-      expect(el.classList.contains('pages-theme-casehub-light')).toBe(false);
-      expect(el._darkMode).toBe(true);
-    });
-
-    it('toggles back to light mode', async () => {
-      const el = await renderWorkbench() as any;
-      el._toggleTheme();
-      el._toggleTheme();
-      await el.updateComplete;
-      expect(el.classList.contains('pages-theme-casehub-light')).toBe(true);
-      expect(el._darkMode).toBe(false);
-    });
-
-    it('renders theme toggle button in dock strip', async () => {
+    it('renders pages-theme-picker with compact attribute', async () => {
       const el = await renderWorkbench();
-      const toggle = el.shadowRoot!.querySelector('.dock-strip .dock-btn:last-child');
-      expect(toggle).toBeTruthy();
-      expect(toggle!.getAttribute('title')).toBe('Dark mode');
+      const picker = el.shadowRoot!.querySelector('pages-theme-picker');
+      expect(picker).toBeTruthy();
+      expect(picker?.hasAttribute('compact')).toBe(true);
+    });
+
+    it('renders settings gear icon in dock strip', async () => {
+      const el = await renderWorkbench();
+      const btns = el.shadowRoot!.querySelectorAll('.dock-strip .dock-btn');
+      const settingsBtn = Array.from(btns).find(btn => btn.getAttribute('aria-label') === 'Settings');
+      expect(settingsBtn).toBeTruthy();
+      expect(settingsBtn!.querySelector('svg')).toBeTruthy();
+    });
+
+    it('does not render dock strip on tablet', async () => {
+      const el = await renderWorkbench() as any;
+      el._mode = 'tablet';
+      el.requestUpdate();
+      await el.updateComplete;
+      const dockStrip = el.shadowRoot!.querySelector('.dock-strip');
+      expect(dockStrip).toBeNull();
     });
   });
 
