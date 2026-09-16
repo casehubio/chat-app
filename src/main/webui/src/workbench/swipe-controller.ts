@@ -30,6 +30,8 @@ export class SwipeController implements ReactiveController {
   private _samples: PointerSample[] = [];
   private _attached = false;
   private _reducedMotion = false;
+  private _longPressTimer: ReturnType<typeof setTimeout> | null = null;
+  private _longPressStartPos: { x: number; y: number } | null = null;
 
   constructor(host: ReactiveControllerHost, options: SwipeOptions) {
     this._host = host;
@@ -57,16 +59,25 @@ export class SwipeController implements ReactiveController {
 
   private _attachListeners() {
     if (this._attached) return;
+    const el = this._host instanceof HTMLElement ? this._host : document.body;
     document.body.addEventListener('pointerdown', this._onPointerDown);
+    el.addEventListener('touchstart', this._onTouchStart, { passive: true });
+    el.addEventListener('touchmove', this._onTouchMove, { passive: true });
+    el.addEventListener('touchend', this._onTouchEnd, { passive: true });
     this._attached = true;
   }
 
   private _detachListeners() {
     if (!this._attached) return;
+    const el = this._host instanceof HTMLElement ? this._host : document.body;
     document.body.removeEventListener('pointerdown', this._onPointerDown);
     document.body.removeEventListener('pointermove', this._onPointerMove);
     document.body.removeEventListener('pointerup', this._onPointerUp);
     document.body.removeEventListener('pointercancel', this._onPointerUp);
+    el.removeEventListener('touchstart', this._onTouchStart);
+    el.removeEventListener('touchmove', this._onTouchMove);
+    el.removeEventListener('touchend', this._onTouchEnd);
+    this._cancelLongPress();
     this._attached = false;
   }
 
@@ -261,4 +272,42 @@ export class SwipeController implements ReactiveController {
     const dt = last.t - first.t;
     return dt >= 5 ? Math.abs(last.x - first.x) / dt : 0;
   }
+
+  private _cancelLongPress() {
+    if (this._longPressTimer) {
+      clearTimeout(this._longPressTimer);
+      this._longPressTimer = null;
+    }
+    this._longPressStartPos = null;
+  }
+
+  private _onTouchStart = (e: TouchEvent) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    this._longPressStartPos = { x: touch.clientX, y: touch.clientY };
+    const target = e.target;
+    this._longPressTimer = setTimeout(() => {
+      const el = this._host instanceof HTMLElement ? this._host : document.body;
+      el.dispatchEvent(new CustomEvent('pages-event', {
+        bubbles: true, composed: true,
+        detail: { topic: 'context-menu', payload: { x: touch.clientX, y: touch.clientY, target } },
+      }));
+      this._longPressTimer = null;
+    }, 500);
+  };
+
+  private _onTouchMove = (e: TouchEvent) => {
+    if (!this._longPressTimer || !this._longPressStartPos) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const dx = touch.clientX - this._longPressStartPos.x;
+    const dy = touch.clientY - this._longPressStartPos.y;
+    if (Math.sqrt(dx * dx + dy * dy) > 10) {
+      this._cancelLongPress();
+    }
+  };
+
+  private _onTouchEnd = () => {
+    this._cancelLongPress();
+  };
 }

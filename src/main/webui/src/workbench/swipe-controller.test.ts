@@ -317,4 +317,54 @@ describe('SwipeController', () => {
       expect(onOpen).not.toHaveBeenCalled();
     });
   });
+
+  describe('long-press detection', () => {
+    function mockTouch(x: number, y: number): any {
+      return { identifier: 0, target: document.body, clientX: x, clientY: y, pageX: x, pageY: y, screenX: x, screenY: y, radiusX: 0, radiusY: 0, rotationAngle: 0, force: 1 };
+    }
+
+    function touchEvent(type: string, x?: number, y?: number): TouchEvent {
+      const init: any = { bubbles: true };
+      if (x !== undefined && y !== undefined) init.touches = [mockTouch(x, y)];
+      return new TouchEvent(type, init);
+    }
+
+    it('dispatches context-menu event after 500ms press', async () => {
+      const events: CustomEvent[] = [];
+      document.body.addEventListener('pages-event', (e) => events.push(e as CustomEvent));
+
+      controller.hostConnected();
+      document.body.dispatchEvent(touchEvent('touchstart', 100, 200));
+
+      await new Promise(r => setTimeout(r, 550));
+      expect(events.length).toBe(1);
+      expect(events[0].detail.topic).toBe('context-menu');
+      expect(events[0].detail.payload.x).toBe(100);
+      expect(events[0].detail.payload.y).toBe(200);
+    });
+
+    it('cancels long-press if touch moves more than 10px', async () => {
+      const events: CustomEvent[] = [];
+      document.body.addEventListener('pages-event', (e) => events.push(e as CustomEvent));
+
+      controller.hostConnected();
+      document.body.dispatchEvent(touchEvent('touchstart', 100, 200));
+      document.body.dispatchEvent(touchEvent('touchmove', 120, 200));
+
+      await new Promise(r => setTimeout(r, 550));
+      expect(events.length).toBe(0);
+    });
+
+    it('cancels long-press on touchend before threshold', async () => {
+      const events: CustomEvent[] = [];
+      document.body.addEventListener('pages-event', (e) => events.push(e as CustomEvent));
+
+      controller.hostConnected();
+      document.body.dispatchEvent(touchEvent('touchstart', 100, 200));
+      document.body.dispatchEvent(new TouchEvent('touchend', { bubbles: true }));
+
+      await new Promise(r => setTimeout(r, 550));
+      expect(events.length).toBe(0);
+    });
+  });
 });
