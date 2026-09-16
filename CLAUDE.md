@@ -39,7 +39,7 @@ Before any git operation, run `git rev-parse --show-toplevel` to confirm which r
 
 ## Peer Repos — Hard Boundary
 
-These are sibling repos. **Never commit to them from a chat-app session:**
+These are sibling repos at their canonical checkouts. **Never commit to canonical checkouts from a chat-app session.** Cross-repo slot copies (e.g. `slots/194/blocks-ui`) are fine — that's what slots are for.
 - casehub-parent, casehub-platform, casehub-worker, casehub-ledger, casehub-work
 - casehub-qhorus, casehub-connectors, casehub-iot, casehub-ras, casehub-desiredstate
 - casehub-blocks, casehub-blocks-ui, casehub-engine, casehub-pages
