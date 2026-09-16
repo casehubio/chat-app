@@ -76,6 +76,8 @@ export class QhorusWorkbenchElement extends LitElement {
   @state() private _tabletTab: string = 'nav';
   @state() private _drawerOpen: string | null = null;
   @state() private _compactDensity = false;
+  @state() private _navWidth = 240;
+  @state() private _memberWidth = 220;
   @state() private _selectedArtefactRef?: ArtefactRef;
 
   private static readonly DOCK_ITEMS = [
@@ -108,7 +110,6 @@ export class QhorusWorkbenchElement extends LitElement {
     }
     /* --- panels --- */
     .nav-panel {
-      width: 240px;
       flex-shrink: 0;
       border-right: 1px solid var(--pages-neutral-4, #e5e5e5);
       overflow-y: auto;
@@ -121,7 +122,6 @@ export class QhorusWorkbenchElement extends LitElement {
       min-height: 0;
     }
     .member-panel {
-      width: 220px;
       flex-shrink: 0;
       border-left: 1px solid var(--pages-neutral-4, #e5e5e5);
       overflow-y: auto;
@@ -280,6 +280,16 @@ export class QhorusWorkbenchElement extends LitElement {
     .settings-section { margin-top: 24px; }
     .settings-subheading { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--pages-neutral-9); }
     .settings-placeholder { font-size: 12px; color: var(--pages-neutral-8); font-style: italic; }
+    /* --- drag handles --- */
+    .drag-handle {
+      width: 4px;
+      cursor: col-resize;
+      background: transparent;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .drag-handle:hover { background: var(--pages-accent-7, #818cf8); }
+    .drag-handle:active { background: var(--pages-accent-9, #007bff); }
   `;
 
   configure(props: Record<string, unknown>) {
@@ -301,6 +311,10 @@ export class QhorusWorkbenchElement extends LitElement {
       this._layoutState = saved;
       this._compactDensity = !!(saved.panels as any)?.compactDensity;
       if (this._compactDensity) this.classList.add('pages-density-compact');
+      if (saved.splits) {
+        if (typeof (saved.splits as any).nav === 'number') this._navWidth = (saved.splits as any).nav;
+        if (typeof (saved.splits as any).member === 'number') this._memberWidth = (saved.splits as any).member;
+      }
     }
   }
 
@@ -378,6 +392,35 @@ export class QhorusWorkbenchElement extends LitElement {
   }
 
   private _closeDrawer() { this._drawerOpen = null; }
+
+  private _onDragStart(panel: 'nav' | 'member', e: PointerEvent) {
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+    const startX = e.clientX;
+    const startWidth = panel === 'nav' ? this._navWidth : this._memberWidth;
+    const minW = 180;
+    const maxW = panel === 'nav' ? 360 : 300;
+
+    const onMove = (me: PointerEvent) => {
+      const delta = panel === 'nav' ? me.clientX - startX : startX - me.clientX;
+      const newWidth = Math.max(minW, Math.min(maxW, startWidth + delta));
+      if (panel === 'nav') this._navWidth = newWidth;
+      else this._memberWidth = newWidth;
+    };
+
+    const onUp = () => {
+      target.removeEventListener('pointermove', onMove);
+      target.removeEventListener('pointerup', onUp);
+      this._layoutState = {
+        ...this._layoutState,
+        splits: { ...this._layoutState.splits, [panel]: panel === 'nav' ? this._navWidth : this._memberWidth },
+      };
+      this._layoutStore.save('workbench', this._layoutState);
+    };
+
+    target.addEventListener('pointermove', onMove);
+    target.addEventListener('pointerup', onUp);
+  }
 
   private _onChatEvent = (e: CustomEvent) => {
     const { topic, payload } = e.detail;
@@ -657,11 +700,13 @@ export class QhorusWorkbenchElement extends LitElement {
     const rightPanels = ['members', 'correlation', 'artifacts', 'settings'].filter(p => this._isDockOpen(p));
     return html`
       ${this._renderDockStrip()}
-      ${leftPanels.map(p => html`<div class="nav-panel">${this._renderPanel(p)}</div>`)}
+      ${leftPanels.map(p => html`<div class="nav-panel" style="width:${this._navWidth}px">${this._renderPanel(p)}</div>`)}
+      ${leftPanels.length > 0 ? html`<div class="drag-handle" @pointerdown=${(e: PointerEvent) => this._onDragStart('nav', e)} @dblclick=${() => { this._navWidth = 240; this._layoutState = { ...this._layoutState, splits: { ...this._layoutState.splits, nav: 240 } }; this._layoutStore.save('workbench', this._layoutState); }}></div>` : nothing}
       <div class="main-panel">
         ${this._renderChat()}
       </div>
-      ${rightPanels.map(p => html`<div class="member-panel">${this._renderPanel(p)}</div>`)}
+      ${rightPanels.length > 0 ? html`<div class="drag-handle" @pointerdown=${(e: PointerEvent) => this._onDragStart('member', e)} @dblclick=${() => { this._memberWidth = 220; this._layoutState = { ...this._layoutState, splits: { ...this._layoutState.splits, member: 220 } }; this._layoutStore.save('workbench', this._layoutState); }}></div>` : nothing}
+      ${rightPanels.map(p => html`<div class="member-panel" style="width:${this._memberWidth}px">${this._renderPanel(p)}</div>`)}
     `;
   }
 

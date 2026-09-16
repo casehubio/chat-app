@@ -622,6 +622,23 @@ describe('QhorusWorkbenchElement', () => {
     });
   });
 
+  describe('resizable panels', () => {
+    it('renders drag handles between panels in desktop mode', async () => {
+      const el = await renderWorkbench();
+      const handles = el.shadowRoot!.querySelectorAll('.drag-handle');
+      expect(handles.length).toBeGreaterThan(0);
+    });
+
+    it('applies dynamic nav width via inline style', async () => {
+      const el = await renderWorkbench() as any;
+      el._navWidth = 300;
+      el.requestUpdate();
+      await el.updateComplete;
+      const navPanel = el.shadowRoot!.querySelector('.nav-panel') as HTMLElement;
+      expect(navPanel?.style.width).toBe('300px');
+    });
+  });
+
   describe('layout persistence', () => {
     it('initializes dock state from DockItem defaults', async () => {
       const el = await renderWorkbench() as any;
