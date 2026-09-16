@@ -213,6 +213,14 @@ export class QhorusWorkbenchElement extends LitElement {
     .tab-switcher button.active .tab-count {
       background: var(--pages-accent-5, #c7d2fe);
     }
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--pages-neutral-4, #e5e5e5);
+      gap: 8px;
+    }
+    .sidebar-header chat-demo-identity { flex: 1; min-width: 0; }
     .sidebar-content { flex: 1; min-height: 0; overflow-y: auto; }
     /* --- phone drawers --- */
     .drawer {
@@ -490,7 +498,6 @@ export class QhorusWorkbenchElement extends LitElement {
 
   private _renderNav() {
     return html`
-      ${this._renderIdentity()}
       <blocks-channel-nav
         .channelTree=${this._channels.channelTree}
         .selectedChannelId=${this._channels.selectedChannelId}>
@@ -572,6 +579,7 @@ export class QhorusWorkbenchElement extends LitElement {
             applyTheme(family ?? 'casehub', mode ?? 'light');
           }}>
         </pages-theme-picker>
+        <chat-demo-identity identities=${this.identities} compact></chat-demo-identity>
       </div>
     `;
   }
@@ -631,6 +639,15 @@ export class QhorusWorkbenchElement extends LitElement {
     ];
     return html`
       <div class="sidebar-with-tabs">
+        <div class="sidebar-header">
+          <chat-demo-identity identities=${this.identities}></chat-demo-identity>
+          <pages-theme-picker compact
+            @theme-change=${(e: CustomEvent) => {
+              const { family, mode } = e.detail;
+              applyTheme(family ?? 'casehub', mode ?? 'light');
+            }}>
+          </pages-theme-picker>
+        </div>
         <div class="tab-switcher">
           ${tabItems.map(t => { const count = this._tabletCount(t.id); return html`
             <button class=${this._tabletTab === t.id ? 'active' : ''}

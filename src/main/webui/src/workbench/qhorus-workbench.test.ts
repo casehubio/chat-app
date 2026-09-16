@@ -587,6 +587,23 @@ describe('QhorusWorkbenchElement', () => {
     });
   });
 
+  describe('identity widget placement', () => {
+    it('renders identity widget in dock strip on desktop', async () => {
+      const el = await renderWorkbench();
+      const dock = el.shadowRoot!.querySelector('.dock-strip');
+      const identity = dock?.querySelector('chat-demo-identity');
+      expect(identity).toBeTruthy();
+      expect(identity?.hasAttribute('compact')).toBe(true);
+    });
+
+    it('does not render identity widget in nav panel', async () => {
+      const el = await renderWorkbench();
+      const nav = el.shadowRoot!.querySelector('.nav-panel');
+      const identity = nav?.querySelector('chat-demo-identity');
+      expect(identity).toBeFalsy();
+    });
+  });
+
   describe('layout persistence', () => {
     it('initializes dock state from DockItem defaults', async () => {
       const el = await renderWorkbench() as any;

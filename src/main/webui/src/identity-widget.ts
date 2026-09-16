@@ -59,6 +59,7 @@ export class ChatDemoIdentity extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host { position: relative; display: block; }
+        :host([compact]) { display: flex; align-items: center; justify-content: center; }
         .trigger {
           display: flex; align-items: center; gap: 8px;
           padding: 10px 16px;
@@ -66,7 +67,15 @@ export class ChatDemoIdentity extends HTMLElement {
           font-family: system-ui, sans-serif;
           border-bottom: 1px solid var(--pages-neutral-4, #e5e5e5);
         }
+        :host([compact]) .trigger {
+          padding: 4px;
+          border-bottom: none;
+          justify-content: center;
+        }
+        :host([compact]) .user-name,
+        :host([compact]) .chevron { display: none; }
         .trigger:hover { background: var(--pages-neutral-3, #f0f0f0); }
+        :host([compact]) .trigger:hover { background: transparent; }
         .avatar {
           width: 28px; height: 28px; border-radius: 50%;
           background: var(--pages-accent-9, #007bff);
