@@ -24,6 +24,10 @@ REST/WebSocket endpoints, and casehub-pages frontend.</description>
   </properties>
 
   <dependencies>
+    <dependency>
+      <groupId>jakarta.validation</groupId>
+      <artifactId>jakarta.validation-api</artifactId>
+    </dependency>
     <!-- Qhorus -->
     <dependency>
       <groupId>io.casehub</groupId>
@@ -162,6 +166,23 @@ REST/WebSocket endpoints, and casehub-pages frontend.</description>
             </goals>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>io.casehub</groupId>
+              <artifactId>casehub-platform-graphql-generator</artifactId>
+              <version>${casehub.version}</version>
+            </path>
+          </annotationProcessorPaths>
+          <compilerArgs>
+            <arg>-AdomainFilter=chat/messages,chat/presence</arg>
+            <arg>-AgenerateGraphQL=false</arg>
+          </compilerArgs>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>io.smallrye</groupId>
