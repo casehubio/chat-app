@@ -1,7 +1,10 @@
 package io.casehub.chat.app.api;
 
-import io.casehub.chat.app.PresenceResource;
+import io.casehub.chat.app.SetPresenceRequest;
 import io.casehub.platform.api.mcp.McpDomain;
+import io.casehub.qhorus.api.channel.PresenceStatus;
+import io.casehub.qhorus.api.channel.PresenceTracker;
+import io.casehub.qhorus.push.QhorusWebSocketBroadcaster;
 import io.casehub.platform.api.mcp.PathParam;
 import io.casehub.platform.api.mcp.PlatformMutation;
 import io.casehub.platform.api.mcp.PlatformQuery;
@@ -15,18 +18,25 @@ import java.util.Map;
 @ApplicationScoped
 public class ChatPresenceApi {
 
-    @Inject PresenceResource resource;
+    @Inject
+    PresenceTracker presence;
+    @Inject
+    QhorusWebSocketBroadcaster broadcaster;
+
 
     @PlatformQuery("Get presence status for a member")
     @RestPath("/{memberId}")
     public Map<String, String> getPresence(@PathParam String memberId) {
-        return resource.getPresence(memberId);
+        var p = presence.getPresence(memberId);
+        return Map.of("memberId", memberId, "status", p.status().name());
     }
 
     @PlatformMutation("Set presence status for a member")
     @RestPath("/{memberId}")
-    public Object setPresence(@PathParam String memberId,
-                               PresenceResource.SetPresenceRequest request) {
-        return resource.setPresence(memberId, request).getEntity();
+    public void setPresence(@PathParam String memberId,
+                            SetPresenceRequest request) {
+        var status = PresenceStatus.valueOf(request.status());
+        presence.heartbeat(status, null);
+        broadcaster.broadcastPresenceReplace(memberId, status);
     }
 }
