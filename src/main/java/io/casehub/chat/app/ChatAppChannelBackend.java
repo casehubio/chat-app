@@ -7,7 +7,7 @@ import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.CommitmentStateChangedEvent;
 import io.casehub.qhorus.api.gateway.HumanParticipatingChannelBackend;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
-import io.casehub.qhorus.push.QhorusWebSocketBroadcaster;
+import io.casehub.qhorus.push.core.QhorusWebSocketBroadcasterCore;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.event.TransactionPhase;
@@ -19,7 +19,7 @@ import java.util.Map;
 public class ChatAppChannelBackend implements HumanParticipatingChannelBackend {
 
     @Inject
-    QhorusWebSocketBroadcaster broadcaster;
+    QhorusWebSocketBroadcasterCore broadcaster;
 
     @Inject
     BackendRegistry registry;

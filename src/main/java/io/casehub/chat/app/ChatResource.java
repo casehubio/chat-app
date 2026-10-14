@@ -13,7 +13,7 @@ import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.store.MembershipReader;
 import io.casehub.qhorus.api.store.TopicReader;
-import io.casehub.qhorus.push.QhorusWebSocketBroadcaster;
+import io.casehub.qhorus.push.core.QhorusWebSocketBroadcasterCore;
 import io.quarkus.security.Authenticated;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -55,7 +55,7 @@ public class ChatResource {
     @Inject
     TopicReader                topicReader;
     @Inject
-    QhorusWebSocketBroadcaster broadcaster;
+    QhorusWebSocketBroadcasterCore broadcaster;
     @Inject
     CurrentPrincipal           currentPrincipal;
     @Inject

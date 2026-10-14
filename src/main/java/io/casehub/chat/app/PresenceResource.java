@@ -2,7 +2,7 @@ package io.casehub.chat.app;
 
 import io.casehub.qhorus.api.channel.PresenceStatus;
 import io.casehub.qhorus.api.channel.PresenceTracker;
-import io.casehub.qhorus.push.QhorusWebSocketBroadcaster;
+import io.casehub.qhorus.push.core.QhorusWebSocketBroadcasterCore;
 import io.quarkus.security.Authenticated;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -31,7 +31,7 @@ public class PresenceResource {
     PresenceTracker presence;
 
     @Inject
-    QhorusWebSocketBroadcaster broadcaster;
+    QhorusWebSocketBroadcasterCore broadcaster;
 
     @GET
     @Path("/{memberId}")
