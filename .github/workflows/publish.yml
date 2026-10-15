@@ -32,3 +32,15 @@ jobs:
         run: mvn --batch-mode verify
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package chat app
+        run: |
+          cd target
+          zip -qr "$GITHUB_WORKSPACE/casehub-chat-app-0.3.zip" quarkus-app
+
+      - name: Upload chat app
+        uses: actions/upload-artifact@v4
+        with:
+          name: casehub-chat-app-0.3
+          path: casehub-chat-app-0.3.zip
+          if-no-files-found: error
