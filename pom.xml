@@ -7,11 +7,11 @@
   <parent>
     <groupId>io.casehub</groupId>
     <artifactId>casehub-parent</artifactId>
-    <version>0.3</version>
+    <version>0.4-SNAPSHOT</version>
   </parent>
 
   <artifactId>casehub-chat-app</artifactId>
-  <version>0.3</version>
+  <version>0.4-SNAPSHOT</version>
 
   <name>CaseHub Chat App</name>
   <description>Chat workbench application — qhorus UI with SQLite persistence,
@@ -32,31 +32,31 @@ REST/WebSocket endpoints, and casehub-pages frontend.</description>
     <dependency>
       <groupId>io.casehub</groupId>
       <artifactId>casehub-qhorus-api</artifactId>
-      <version>0.3</version>
+      <version>0.4-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>io.casehub</groupId>
       <artifactId>casehub-qhorus</artifactId>
-      <version>0.3</version>
+      <version>0.4-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>io.casehub</groupId>
       <artifactId>casehub-platform-api</artifactId>
-      <version>0.3</version>
+      <version>0.4-SNAPSHOT</version>
     </dependency>
 
     <!-- Push protocol (pages-push transitive via qhorus-push) -->
     <dependency>
       <groupId>io.casehub</groupId>
       <artifactId>casehub-qhorus-push</artifactId>
-      <version>0.3</version>
+      <version>0.4-SNAPSHOT</version>
     </dependency>
 
     <!-- Auth -->
     <dependency>
       <groupId>io.casehub</groupId>
       <artifactId>casehub-pages-auth</artifactId>
-      <version>0.3</version>
+      <version>0.4-SNAPSHOT</version>
     </dependency>
 
     <!-- Quarkus -->
@@ -91,12 +91,12 @@ REST/WebSocket endpoints, and casehub-pages frontend.</description>
     <dependency>
       <groupId>io.casehub</groupId>
       <artifactId>casehub-pages-npm</artifactId>
-      <version>0.3</version>
+      <version>0.4-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>io.casehub</groupId>
       <artifactId>casehub-blocks-ui-npm</artifactId>
-      <version>0.3</version>
+      <version>0.4-SNAPSHOT</version>
     </dependency>
 
     <!-- Testing -->
@@ -140,13 +140,13 @@ REST/WebSocket endpoints, and casehub-pages frontend.</description>
                 <artifactItem>
                   <groupId>io.casehub</groupId>
                   <artifactId>casehub-pages-npm</artifactId>
-                  <version>0.3</version>
+                  <version>0.4-SNAPSHOT</version>
                   <outputDirectory>${project.basedir}/src/main/webui/.casehub-packages</outputDirectory>
                 </artifactItem>
                 <artifactItem>
                   <groupId>io.casehub</groupId>
                   <artifactId>casehub-blocks-ui-npm</artifactId>
-                  <version>0.3</version>
+                  <version>0.4-SNAPSHOT</version>
                   <outputDirectory>${project.basedir}/src/main/webui/.casehub-packages</outputDirectory>
                 </artifactItem>
               </artifactItems>
