@@ -18,3 +18,5 @@ src/main/webui/test-results/
 .claude
 .claude/
 .quinoa
+
+.flattened-pom.xml
