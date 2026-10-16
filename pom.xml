@@ -7,7 +7,7 @@
   <parent>
     <groupId>io.casehub</groupId>
     <artifactId>casehub-parent</artifactId>
-    <version>0.4-SNAPSHOT</version>
+    <version>${revision}</version>
   </parent>
 
   <artifactId>casehub-chat-app</artifactId>
@@ -19,6 +19,7 @@ REST/WebSocket endpoints, and casehub-pages frontend.</description>
   <url>https://github.com/casehubio/chat-app</url>
 
   <properties>
+    <revision>0.4-SNAPSHOT</revision>
     <skipDeploy>true</skipDeploy>
     <maven.deploy.skip>true</maven.deploy.skip>
   </properties>
