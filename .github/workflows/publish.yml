@@ -28,6 +28,17 @@ jobs:
           server-username: GITHUB_ACTOR
           server-password: GITHUB_TOKEN
 
+      # Published blocks-ui 0.3 requires this parent, absent from GitHub Packages.
+      - name: Check out CaseHub parent 0.3
+        uses: actions/checkout@v4
+        with:
+          repository: casehubio/parent
+          ref: a5766dfb227917c72ba681dc2971b780fd1fab00 # v0.3
+          path: .ci/casehub-parent
+
+      - name: Install CaseHub parent 0.3
+        run: mvn --batch-mode -N -f .ci/casehub-parent/pom.xml install
+
       - name: Build and test
         run: mvn --batch-mode -U verify
         env:
