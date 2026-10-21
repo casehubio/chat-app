@@ -22,7 +22,7 @@ if (pagesExists) {
 if (fs.existsSync(path.resolve(CHANNEL_ACTIVITY, 'src'))) {
   aliases.push({ find: '@casehubio/mosaic-channel-activity', replacement: path.resolve(CHANNEL_ACTIVITY, 'src') });
 }
-const BLOCKS_CORE = path.resolve(BLOCKS_UI, 'packages/blocks-ui-core');
+const BLOCKS_CORE = path.resolve(BLOCKS_UI, 'packages/mosaic-core');
 if (fs.existsSync(path.resolve(BLOCKS_CORE, 'src'))) {
   aliases.push({ find: '@casehubio/mosaic-core', replacement: path.resolve(BLOCKS_CORE, 'src') });
 }
