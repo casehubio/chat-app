@@ -17,7 +17,7 @@ const symlinkPkgs = [
   "pages-primitives", "pages-ui-tokens", "pages-component",
   "pages-data", "pages-runtime", "pages-ui", "pages-viz",
   "pages-ui-components", "pages-table", "pages-iframe-api",
-  "blocks-ui-core",
+  "mosaic-core",
 ];
 for (const pkg of symlinkPkgs) {
   const target = resolve(PKGS, pkg);
@@ -81,7 +81,7 @@ const options = {
   sourcemap: isWatch,
   plugins: [casehubResolvePlugin],
   alias: {
-    "@casehubio/blocks-ui-channel-activity": resolve(CHANNEL_ACTIVITY, "src"),
+    "@casehubio/mosaic-channel-activity": resolve(CHANNEL_ACTIVITY, "src"),
   },
 };
 

@@ -18,7 +18,7 @@ if (pagesExists) {
   }
 }
 
-// blocks-ui packages from source if available
+// mosaic packages from source if available
 if (fs.existsSync(path.resolve(CHANNEL_ACTIVITY, 'src'))) {
   aliases.push({ find: '@casehubio/mosaic-channel-activity', replacement: path.resolve(CHANNEL_ACTIVITY, 'src') });
 }
