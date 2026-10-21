@@ -39,10 +39,10 @@ Before any git operation, run `git rev-parse --show-toplevel` to confirm which r
 
 ## Peer Repos — Hard Boundary
 
-These are sibling repos at their canonical checkouts. **Never commit to canonical checkouts from a chat-app session.** Cross-repo slot copies (e.g. `slots/194/blocks-ui`) are fine — that's what slots are for.
+These are sibling repos at their canonical checkouts. **Never commit to canonical checkouts from a chat-app session.** Cross-repo slot copies (e.g. `slots/194/casehub-mosaic`) are fine — that's what slots are for.
 - casehub-parent, casehub-platform, casehub-worker, casehub-ledger, casehub-work
 - casehub-qhorus, casehub-connectors, casehub-iot, casehub-ras, casehub-desiredstate
-- casehub-blocks, casehub-blocks-ui, casehub-engine, casehub-pages
+- casehub-blocks, casehub-casehub-mosaic, casehub-engine, casehub-pages
 - claudony, casehub-openclaw, casehub-workers, casehub-ops
 - casehub-eidos, casehub-neocortex
 - casehub-aml, casehub-clinical, casehub-life, casehub-drafthouse
@@ -97,9 +97,9 @@ type: java
 
 ## What This Project Is
 
-Chat workbench application — a runnable chat UI with qhorus runtime backend (H2 for dev/demo), REST/WebSocket endpoints, and a casehub-pages frontend. Consumes `@casehubio/blocks-ui-channel-activity` for the channel components (feed, nav, member panel, input, reactions, threading) and provides the app shell (workbench layout, WebSocket adapter, swipe gestures, auth layer).
+Chat workbench application — a runnable chat UI with qhorus runtime backend (H2 for dev/demo), REST/WebSocket endpoints, and a casehub-pages frontend. Consumes `@casehubio/casehub-mosaic-channel-activity` for the channel components (feed, nav, member panel, input, reactions, threading) and provides the app shell (workbench layout, WebSocket adapter, swipe gestures, auth layer).
 
-**This is NOT a connector or library.** It is an Integration-tier application that wires together foundation components (qhorus-api, pages-auth, blocks-ui-channel-activity) into a runnable chat experience. The chat-app implements `HumanParticipatingChannelBackend` for outbound WebSocket delivery via the qhorus gateway fan-out pattern.
+**This is NOT a connector or library.** It is an Integration-tier application that wires together foundation components (qhorus-api, pages-auth, casehub-mosaic-channel-activity) into a runnable chat experience. The chat-app implements `HumanParticipatingChannelBackend` for outbound WebSocket delivery via the qhorus gateway fan-out pattern.
 
 ---
 
@@ -151,15 +151,15 @@ JAVA_HOME=$(/usr/libexec/java_home -v 26)    # Java 26, use for dev and tests
 
 ## Frontend Dependencies
 
-This project consumes frontend packages from casehub-pages and blocks-ui via **Maven SNAPSHOT** artifacts (WebJar pattern).
+This project consumes frontend packages from casehub-pages and casehub-mosaic via **Maven SNAPSHOT** artifacts (WebJar pattern).
 See [casehub-pages ADR-0001](https://github.com/casehubio/casehub-pages/blob/main/docs/adr/0001-cross-repo-frontend-dependency-management.md).
 
 | Source | Mechanism |
 |--------|-----------|
 | casehub-pages | Maven SNAPSHOT (`META-INF/resources/`) |
-| blocks-ui | Maven SNAPSHOT (`META-INF/resources/`) |
+| casehub-mosaic | Maven SNAPSHOT (`META-INF/resources/`) |
 
-**Local development:** after changing pages or blocks-ui, run `yarn build && mvn install` in the source repo to publish the SNAPSHOT to `~/.m2`.
+**Local development:** after changing pages or casehub-mosaic, run `yarn build && mvn install` in the source repo to publish the SNAPSHOT to `~/.m2`.
 
 **Do not use npm `file:` references for cross-repo dependencies** — they break in CI. See ADR-0001.
 
