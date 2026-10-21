@@ -18,9 +18,9 @@
     "marked": "^15.0.12"
   },
   "optionalDependencies": {
-    "@casehubio/blocks-ui-channel-activity": "file:.casehub-packages/packages/channel-activity",
-    "@casehubio/blocks-ui-commitment-viz": "file:.casehub-packages/packages/commitment-viz",
-    "@casehubio/blocks-ui-core": "file:.casehub-packages/packages/blocks-ui-core",
+    "@casehubio/mosaic-channel-activity": "file:.casehub-packages/packages/channel-activity",
+    "@casehubio/mosaic-commitment-viz": "file:.casehub-packages/packages/commitment-viz",
+    "@casehubio/mosaic-core": "file:.casehub-packages/packages/mosaic-core",
     "@casehubio/pages-component": "file:.casehub-packages/packages/pages-component",
     "@casehubio/pages-data": "file:.casehub-packages/packages/pages-data",
     "@casehubio/pages-primitives": "file:.casehub-packages/packages/pages-primitives",

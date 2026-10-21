@@ -19,7 +19,7 @@ REST/WebSocket endpoints, and casehub-pages frontend.</description>
   <url>https://github.com/casehubio/chat-app</url>
 
   <properties>
-    <version.blocks-ui>0.3-SNAPSHOT</version.blocks-ui>
+    <version.mosaic>0.3-SNAPSHOT</version.mosaic>
     <skipDeploy>true</skipDeploy>
     <maven.deploy.skip>true</maven.deploy.skip>
   </properties>
@@ -106,8 +106,8 @@ REST/WebSocket endpoints, and casehub-pages frontend.</description>
     </dependency>
     <dependency>
       <groupId>io.casehub</groupId>
-      <artifactId>casehub-blocks-ui-npm</artifactId>
-      <version>${version.blocks-ui}</version>
+      <artifactId>casehub-mosaic-npm</artifactId>
+      <version>${version.mosaic}</version>
     </dependency>
 
     <!-- Testing -->
@@ -156,8 +156,8 @@ REST/WebSocket endpoints, and casehub-pages frontend.</description>
                 </artifactItem>
                 <artifactItem>
                   <groupId>io.casehub</groupId>
-                  <artifactId>casehub-blocks-ui-npm</artifactId>
-                  <version>${version.blocks-ui}</version>
+                  <artifactId>casehub-mosaic-npm</artifactId>
+                  <version>${version.mosaic}</version>
                   <outputDirectory>${project.basedir}/src/main/webui/.casehub-packages</outputDirectory>
                 </artifactItem>
               </artifactItems>
