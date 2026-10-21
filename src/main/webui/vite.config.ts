@@ -20,16 +20,16 @@ if (pagesExists) {
 
 // blocks-ui packages from source if available
 if (fs.existsSync(path.resolve(CHANNEL_ACTIVITY, 'src'))) {
-  aliases.push({ find: '@casehubio/blocks-ui-channel-activity', replacement: path.resolve(CHANNEL_ACTIVITY, 'src') });
+  aliases.push({ find: '@casehubio/mosaic-channel-activity', replacement: path.resolve(CHANNEL_ACTIVITY, 'src') });
 }
 const BLOCKS_CORE = path.resolve(BLOCKS_UI, 'packages/blocks-ui-core');
 if (fs.existsSync(path.resolve(BLOCKS_CORE, 'src'))) {
-  aliases.push({ find: '@casehubio/blocks-ui-core', replacement: path.resolve(BLOCKS_CORE, 'src') });
+  aliases.push({ find: '@casehubio/mosaic-core', replacement: path.resolve(BLOCKS_CORE, 'src') });
 }
 const COMMITMENT_VIZ = path.resolve(BLOCKS_UI, 'components/commitment-viz');
 if (fs.existsSync(path.resolve(COMMITMENT_VIZ, 'src'))) {
-  aliases.push({ find: '@casehubio/blocks-ui-commitment-viz/dist', replacement: path.resolve(COMMITMENT_VIZ, 'src') });
-  aliases.push({ find: '@casehubio/blocks-ui-commitment-viz', replacement: COMMITMENT_VIZ });
+  aliases.push({ find: '@casehubio/mosaic-commitment-viz/dist', replacement: path.resolve(COMMITMENT_VIZ, 'src') });
+  aliases.push({ find: '@casehubio/mosaic-commitment-viz', replacement: COMMITMENT_VIZ });
 }
 // pages packages not in .casehub-packages — resolve from main repo if available
 const PAGES_MAIN = path.resolve(__dirname, '../../../../../../pages/packages');
@@ -41,7 +41,7 @@ for (const pkg of ['pages-table', 'pages-primitives']) {
 }
 
 // Packages imported via /src/ subpath need root-level alias (not dist)
-const SRC_IMPORT_PKGS = new Set(['@casehubio/blocks-ui-commitment-viz']);
+const SRC_IMPORT_PKGS = new Set(['@casehubio/mosaic-commitment-viz']);
 
 // All @casehubio/* packages: resolve through .casehub-packages to ensure single copy.
 // Two aliases per package: dist/ prefix first (identity, prevents double-dist),

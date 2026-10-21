@@ -21,16 +21,16 @@ import {
   ChannelTaskPanelElement,
   ChannelCorrelationPanelElement,
   renderMarkdown,
-} from '@casehubio/blocks-ui-channel-activity';
-import type { SendMessagePayload, ArtefactRef, CreateSpacePayload, RenameSpacePayload, DeleteSpacePayload, MoveChannelToSpacePayload } from '@casehubio/blocks-ui-channel-activity';
+} from '@casehubio/mosaic-channel-activity';
+import type { SendMessagePayload, ArtefactRef, CreateSpacePayload, RenameSpacePayload, DeleteSpacePayload, MoveChannelToSpacePayload } from '@casehubio/mosaic-channel-activity';
 import type { LayoutState } from '@casehubio/pages-component';
 import { createLocalLayoutStore } from '@casehubio/pages-runtime/layout-store.js';
 import { getToken, getIdentity, authenticatedFetch } from '../auth.js';
 import { applyTheme } from '@casehubio/pages-ui-tokens';
 import { stateCategoryStyles } from '@casehubio/pages-ui-components';
 import { ARTEFACT_SELECTED } from '../types.js';
-import { decorateCommitmentRanges } from '@casehubio/blocks-ui-commitment-viz/dist/range-decorator.js';
-import type { RangeDecoration } from '@casehubio/blocks-ui-commitment-viz/dist/types.js';
+import { decorateCommitmentRanges } from '@casehubio/mosaic-commitment-viz/dist/range-decorator.js';
+import type { RangeDecoration } from '@casehubio/mosaic-commitment-viz/dist/types.js';
 import '../identity-widget.js';
 import { QhorusArtifactPanelElement } from '../panels/qhorus-artifact-panel.js';
 

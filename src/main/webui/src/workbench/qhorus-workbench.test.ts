@@ -14,8 +14,8 @@ if (!window.matchMedia) {
   }));
 }
 
-import type { QhorusMessage, ChannelMember, Reaction } from '@casehubio/blocks-ui-channel-activity';
-import { ChannelEventTopics } from '@casehubio/blocks-ui-channel-activity';
+import type { QhorusMessage, ChannelMember, Reaction } from '@casehubio/mosaic-channel-activity';
+import { ChannelEventTopics } from '@casehubio/mosaic-channel-activity';
 
 const _origDefine = customElements.define.bind(customElements);
 customElements.define = ((name: string, ctor: CustomElementConstructor, opts?: ElementDefinitionOptions) => {

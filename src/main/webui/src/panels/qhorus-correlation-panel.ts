@@ -1,13 +1,13 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { QhorusMessage } from '@casehubio/blocks-ui-channel-activity';
-import { messageTypeCategory, isObligationCreating } from '@casehubio/blocks-ui-channel-activity';
-import { emitPagesEvent } from '@casehubio/blocks-ui-core';
-import { ChannelEventTopics } from '@casehubio/blocks-ui-channel-activity';
+import type { QhorusMessage } from '@casehubio/mosaic-channel-activity';
+import { messageTypeCategory, isObligationCreating } from '@casehubio/mosaic-channel-activity';
+import { emitPagesEvent } from '@casehubio/mosaic-core';
+import { ChannelEventTopics } from '@casehubio/mosaic-channel-activity';
 import type { CommitmentRecord } from '../types.js';
-import type { TransitionRecord } from '@casehubio/blocks-ui-commitment-viz/src/types.js';
-import '@casehubio/blocks-ui-core';
-import '@casehubio/blocks-ui-commitment-viz/src/commitment-transition-badge.js';
+import type { TransitionRecord } from '@casehubio/mosaic-commitment-viz/src/types.js';
+import '@casehubio/mosaic-core';
+import '@casehubio/mosaic-commitment-viz/src/commitment-transition-badge.js';
 
 @customElement('qhorus-correlation-panel')
 export class QhorusCorrelationPanelElement extends LitElement {

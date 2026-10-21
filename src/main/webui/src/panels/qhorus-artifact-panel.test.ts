@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import './qhorus-artifact-panel.js';
-import type { ArtefactRef } from '@casehubio/blocks-ui-channel-activity';
+import type { ArtefactRef } from '@casehubio/mosaic-channel-activity';
 
 afterEach(() => { document.body.innerHTML = ''; });
 

@@ -1,11 +1,11 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { QhorusMessage } from '@casehubio/blocks-ui-channel-activity';
-import { isObligationCreating } from '@casehubio/blocks-ui-channel-activity';
-import { emitPagesEvent, isTerminalCommitmentState } from '@casehubio/blocks-ui-core';
-import { ChannelEventTopics } from '@casehubio/blocks-ui-channel-activity';
+import type { QhorusMessage } from '@casehubio/mosaic-channel-activity';
+import { isObligationCreating } from '@casehubio/mosaic-channel-activity';
+import { emitPagesEvent, isTerminalCommitmentState } from '@casehubio/mosaic-core';
+import { ChannelEventTopics } from '@casehubio/mosaic-channel-activity';
 import type { CommitmentRecord } from '../types.js';
-import '@casehubio/blocks-ui-commitment-viz/src/commitment-range-bar.js';
+import '@casehubio/mosaic-commitment-viz/src/commitment-range-bar.js';
 
 @customElement('qhorus-task-panel')
 export class QhorusTaskPanelElement extends LitElement {

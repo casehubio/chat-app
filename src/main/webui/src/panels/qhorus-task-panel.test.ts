@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import './qhorus-task-panel.js';
-import type { QhorusMessage } from '@casehubio/blocks-ui-channel-activity';
+import type { QhorusMessage } from '@casehubio/mosaic-channel-activity';
 import type { CommitmentRecord } from '../types.js';
 
 function makeCommand(id: string, sender: string, content: string, opts?: { target?: string; correlationId?: string }): QhorusMessage {

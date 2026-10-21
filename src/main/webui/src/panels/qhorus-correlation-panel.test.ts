@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import './qhorus-correlation-panel.js';
-import type { QhorusMessage, CommitmentState } from '@casehubio/blocks-ui-channel-activity';
+import type { QhorusMessage, CommitmentState } from '@casehubio/mosaic-channel-activity';
 import type { CommitmentRecord } from '../types.js';
 
 function makeMsg(id: string, sender: string, content: string, type: string, corr?: string, time?: string, target?: string): QhorusMessage {

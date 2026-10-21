@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { ArtefactRef } from '@casehubio/blocks-ui-channel-activity';
+import type { ArtefactRef } from '@casehubio/mosaic-channel-activity';
 
 @customElement('qhorus-artifact-panel')
 export class QhorusArtifactPanelElement extends LitElement {
