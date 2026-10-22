@@ -187,7 +187,7 @@ deleted before messages and channels respectively.
 | 10 | `artefactRefs` | Not mapped (hardcoded []) | Parse JSON from row |
 | 11 | `target` | Not mapped (hardcoded undefined) | Map from row |
 
-**New type** (defined in `@casehubio/blocks-ui-channel-activity/types.ts`
+**New type** (defined in `@casehubio/agency-ui-channel-activity/types.ts`
 alongside `CommitmentState`):
 
 ```typescript
@@ -342,7 +342,7 @@ Groups COMMAND messages by state, active first:
 
 Each row:
 - Commitment state badge (colors from `commitmentStateCategory` in
-  `@casehubio/blocks-ui-channel-activity` types.ts)
+  `@casehubio/agency-ui-channel-activity` types.ts)
 - Sender + target (who asked, who's responsible)
 - Content preview (first line of COMMAND content, truncated)
 - Relative timestamp
@@ -451,11 +451,11 @@ highlighting code) is a follow-up once artifact storage is richer.
 ### Event Integration
 
 New event topic `channel:artefact-selected` — added to
-`ChannelEventTopics` in `@casehubio/blocks-ui-channel-activity/events.ts`
+`ChannelEventTopics` in `@casehubio/agency-ui-channel-activity/events.ts`
 as `ARTEFACT_SELECTED: 'channel:artefact-selected'`.
 
 Dispatched when a user clicks an artifact chip in `channel-message`. This
-requires a companion change in `@casehubio/blocks-ui-channel-activity`:
+requires a companion change in `@casehubio/agency-ui-channel-activity`:
 adding `@click` handlers on the `.artefact-chip` spans in
 `channel-message.ts` to call `emitPagesEvent(this,
 ChannelEventTopics.ARTEFACT_SELECTED, { artefactRef: ref })`.
@@ -531,7 +531,7 @@ existing workbench and blocks-ui-channel-activity conventions. No hardcoded
 colors, fonts, or spacing. Dark mode works via the OKLCH token system.
 
 Commitment state badge colors follow `commitmentStateCategory` from
-`@casehubio/blocks-ui-channel-activity/types.ts`:
+`@casehubio/agency-ui-channel-activity/types.ts`:
 
 | State | Token group |
 |-------|-------------|

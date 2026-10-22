@@ -265,12 +265,12 @@ A config file in parent drives the cross-repo overlay and documents the filterin
     {"repo": "worker",      "tier": "module", "source": "api" },
     {"repo": "platform",    "tier": "package", "packages": ["io.casehub.platform.api"] },
     {"repo": "blocks",      "tier": "explicit", "packages": [
-      "io.casehub.blocks.agentic",
-      "io.casehub.blocks.channel",
-      "io.casehub.blocks.conversation",
-      "io.casehub.blocks.routing",
-      "io.casehub.blocks.prompt",
-      "io.casehub.blocks.summarisation"
+      "io.casehub.agency.core",
+      "io.casehub.agency.communication.dispatch",
+      "io.casehub.agency.deliberation.conversation",
+      "io.casehub.agency.governance.routing",
+      "io.casehub.agency.optimisation.prompt",
+      "io.casehub.agency.summarisation"
     ]},
     {"repo": "neocortex",   "tier": "module", "source": "api" },
     {"repo": "ras",         "tier": "module", "source": "api" },

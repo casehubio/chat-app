@@ -140,7 +140,7 @@ All channel operations now come from qhorus's ChannelResource and SpaceResource 
 
 ## Frontend: composable controllers in blocks-ui
 
-Six Lit reactive controllers extracted into `@casehubio/blocks-ui-channel-activity`:
+Six Lit reactive controllers extracted into `@casehubio/agency-ui-channel-activity`:
 
 ### PushController
 

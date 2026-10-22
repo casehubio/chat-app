@@ -4,7 +4,7 @@
 **Issue:** casehubio/chat-app#6
 **Status:** Draft
 **Depends on:** casehubio/connectors#61 (Phase 1, CLOSED), casehubio/qhorus#328 (Topic field, CLOSED)
-**Cross-repo:** casehubio/blocks-ui (channel-activity package):
+**Cross-repo:** casehubio/agency-ui (channel-activity package):
   - `types.ts`: new `QhorusTopic` type, `TOPIC_STATES`, `topicId` on `QhorusMessage`
   - `events.ts`: new event topics (SELECT_TOPIC, VIEW_MODE, CREATE_TOPIC, RESOLVE_TOPIC, REOPEN_TOPIC, ARCHIVE_TOPIC, RENAME_TOPIC, MERGE_TOPIC), `topicId` on `SendMessagePayload`
   - New component: `channel-topic-bar`

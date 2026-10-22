@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-01
 **Status:** Draft (revision of 2026-07-17 spec)
-**Related issues:** casehubio/work#237 (ideas capture), casehubio/engine#84 (milestone alignment), casehubio/blocks#49 (topic-aware conversation), casehubio/blocks#62 (progress overlay consumer)
+**Related issues:** casehubio/work#237 (ideas capture), casehubio/engine#84 (milestone alignment), casehubio/agency#49 (topic-aware conversation), casehubio/agency#62 (progress overlay consumer)
 **Deferred issues:** casehubio/work#307 (arbitrary JSON schema shape), casehubio/work#308 (rollback control), casehubio/work#309 (visualisation modes), casehubio/work#310 (progress event retention policy)
 
 ## Changes from 2026-07-17 Spec
@@ -708,7 +708,7 @@ Three mechanisms serve different purposes and compose for the common case:
 
 **Common traversal — "progress for this PlanItem":** engine looks up the PlanItem -> finds its WorkItem via callerRef -> finds the ProgressInstance by `scopeType="workitem"`, `scopeId=workItemId`. The engine can also create a ProgressInstance anchored directly to the PlanItem (`scopeType="planitem"`, `scopeId=planItemId`), bypassing WorkItem entirely. Which path to use depends on whether the progress is conceptually "work progress" (anchor to WorkItem) or "plan progress" (anchor to PlanItem).
 
-### casehub-blocks (blocks#62)
+### casehub-agency (blocks#62)
 
 - `ConversationRenderer` accepts progress snapshot alongside reactions
 - Subscribes to `ProgressUpdatedEvent`, renders as choreography overlay per topic

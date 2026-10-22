@@ -60,6 +60,6 @@ A `count` parent can aggregate `percentage` children. A fleet-level instance use
 
 The engine integration is the piece that makes this architectural: `ProgressUpdatedEvent` fires → engine writes progress state into case context → existing milestone expression evaluation picks it up. A milestone criterion like `progress.workitem.abc123.state.value >= 80` works with no new engine machinery. Progress and milestones compose via events — progress tracks continuous state, milestones are binary waypoints that fire when a threshold crosses.
 
-The conversation renderer in casehub-blocks is the other natural consumer. A case worker viewing a channel sees "Calibration: sensor 3 of 7" or "Review: 63% complete" derived from the actual ProgressInstance state — not parsed from messages, not a number someone typed in manually. The choreography overlay that blocks#62 has been waiting for.
+The conversation renderer in casehub-agency is the other natural consumer. A case worker viewing a channel sees "Calibration: sensor 3 of 7" or "Review: 63% complete" derived from the actual ProgressInstance state — not parsed from messages, not a number someone typed in manually. The choreography overlay that blocks#62 has been waiting for.
 
 The step DAG model also gives AI agents a structured reporting surface. An agent processing 50 files can report `{current: 23, total: 50, unit: "files"}` at each step, feeding naturally into trust scoring and SLA monitoring. The agent doesn't need to know about the progress model's internals — it's a REST call with a JSON body.

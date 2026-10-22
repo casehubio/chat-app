@@ -983,7 +983,7 @@ Refs #33"
 
 - [ ] **Step 1: Update blocks-ui dependency version if needed**
 
-Ensure `@casehubio/blocks-ui-channel-activity` version includes the new controllers.
+Ensure `@casehubio/agency-ui-channel-activity` version includes the new controllers.
 
 - [ ] **Step 2: Rewrite QhorusWorkbenchElement to use controllers**
 
@@ -991,7 +991,7 @@ Replace the ~600 lines of data management, event handling, and REST calls with c
 
 ```ts
 import { PushController, ChannelStateController, MessagingController,
-  MembershipController, ReactionController, CommitmentController } from '@casehubio/blocks-ui-channel-activity';
+  MembershipController, ReactionController, CommitmentController } from '@casehubio/agency-ui-channel-activity';
 
 @customElement('qhorus-workbench')
 export class QhorusWorkbenchElement extends LitElement {

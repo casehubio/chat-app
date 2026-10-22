@@ -449,7 +449,7 @@ Both require:
 
 ### 12.2 blocks-ui: TypeScript MessageType Sync (R1-09)
 
-**Issue needed against:** `casehubio/blocks-ui`
+**Issue needed against:** `casehubio/agency-ui`
 
 Add PROPOSE and JUDGMENT to TypeScript `MESSAGE_TYPES` and `messageTypeCategory()` to match the Java `MessageType` enum. Pre-existing gap that should be resolved before any new types are added.
 

@@ -183,7 +183,7 @@ ALTER TABLE message_ledger_entry ADD COLUMN corrects_message_id BIGINT;
 
 - **Commitment re-acknowledgment** — tracked as casehubio/qhorus#445
 - **Message-scoped erasure** — tracked as casehubio/qhorus#444
-- **TypeScript sync** — tracked as casehubio/blocks-ui#162 (already done on branch)
+- **TypeScript sync** — tracked as casehubio/agency-ui#162 (already done on branch)
 - **Client-side correction rendering** — already implemented in blocks-ui (Batch 4)
 - **Server-side ChannelProjection for corrections** — deferred; client-side collapsing is sufficient for initial release
 

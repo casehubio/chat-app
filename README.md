@@ -7,7 +7,7 @@ Chat workbench application for the CaseHub platform. Provides a runnable chat UI
 - Qhorus workbench shell (responsive layout: desktop/tablet/phone)
 - SQLite-backed chat persistence with REST and WebSocket endpoints
 - JWT-based dev-auth identity system
-- Consumes `@casehubio/blocks-ui-channel-activity` components
+- Consumes `@casehubio/agency-ui-channel-activity` components
 
 ## Build
 
@@ -31,4 +31,4 @@ cd src/main/webui && npx vitest run
 
 - `casehub-connectors` — chat-spi, chat-ref, connectors-core
 - `casehub-pages` — pages-auth, pages-runtime, pages-ui
-- `casehub-blocks-ui` — channel-activity components
+- `casehub-mosaic` — channel-activity components
