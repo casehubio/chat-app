@@ -22,7 +22,7 @@ panel — no chat-app changes needed.
 ## Global Constraints
 
 - blocks-ui changes only — chat-app artifact panel and workbench wiring already complete
-- Use `emitPagesEvent` from `@casehubio/blocks-ui-core` for event dispatch
+- Use `emitPagesEvent` from `@casehubio/agency-ui-core` for event dispatch
 - ArtefactRef type from `./types.js` (uri, type, label, scope)
 - All styling via `--pages-*` design tokens
 
@@ -36,7 +36,7 @@ panel — no chat-app changes needed.
 - Test: `blocks-ui/components/channel-activity/src/channel-message.test.ts`
 
 **Interfaces:**
-- Consumes: `emitPagesEvent` from `@casehubio/blocks-ui-core`, `ArtefactRef` from `./types.js`
+- Consumes: `emitPagesEvent` from `@casehubio/agency-ui-core`, `ArtefactRef` from `./types.js`
 - Produces: `ChannelEventTopics.ARTEFACT_SELECTED: 'channel:artefact-selected'`, click event on `.artefact-chip` dispatching `{ artefactRef: ArtefactRef }`
 
 - [ ] **Step 1: Write the failing test for artefact chip click**

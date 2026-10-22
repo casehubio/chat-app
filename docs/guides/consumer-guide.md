@@ -9,7 +9,7 @@
 
 ## Purpose
 
-Chat workbench application that provides the app shell (workbench layout, WebSocket adapter, connection lifecycle, swipe gestures, contextual panels, JWT dev-auth) around `@casehubio/blocks-ui-channel-activity` components and `@casehubio/blocks-ui-commitment-viz` visualisations. The backend uses the qhorus runtime with H2 in-memory persistence, replacing the earlier SQLite/HikariCP approach (migrated in issue #22).
+Chat workbench application that provides the app shell (workbench layout, WebSocket adapter, connection lifecycle, swipe gestures, contextual panels, JWT dev-auth) around `@casehubio/agency-ui-channel-activity` components and `@casehubio/agency-ui-commitment-viz` visualisations. The backend uses the qhorus runtime with H2 in-memory persistence, replacing the earlier SQLite/HikariCP approach (migrated in issue #22).
 
 This is NOT a connector or library. It is an Integration-tier application that wires together foundation components (qhorus-api, qhorus-runtime, pages-auth, blocks-ui-channel-activity, blocks-ui-commitment-viz) into a runnable chat experience.
 
@@ -168,15 +168,15 @@ Each payload is a JSON object:
 | `casehub-platform-api` | `CurrentPrincipal`, `ActorType` |
 | `casehub-pages-auth` | JWT dev-auth (`/dev/auth/login` endpoint), SmallRye JWT integration |
 | `casehub-pages-npm` | pages-runtime, pages-ui, pages-ui-tokens, pages-component, pages-data (Maven SNAPSHOT WebJar) |
-| `casehub-blocks-ui-npm` | channel-activity components (feed, nav, member panel, input, topic bar), commitment-viz (range-bar, state-pill), blocks-ui-core (Maven SNAPSHOT WebJar) |
+| `casehub-agency-ui-npm` | channel-activity components (feed, nav, member panel, input, topic bar), commitment-viz (range-bar, state-pill), blocks-ui-core (Maven SNAPSHOT WebJar) |
 
 ### Frontend Package Dependencies
 
 | npm Package | Source | What it provides |
 |---|---|---|
-| `@casehubio/blocks-ui-channel-activity` | blocks-ui | ChannelFeedElement, ChannelNavElement, ChannelMemberPanelElement, ChannelInputElement, ChannelTopicBarElement, ChannelEventTopics, message type helpers |
-| `@casehubio/blocks-ui-commitment-viz` | blocks-ui | commitment-range-bar, commitment-state-pill, range-decorator |
-| `@casehubio/blocks-ui-core` | blocks-ui | emitPagesEvent, isTerminalCommitmentState |
+| `@casehubio/agency-ui-channel-activity` | blocks-ui | ChannelFeedElement, ChannelNavElement, ChannelMemberPanelElement, ChannelInputElement, ChannelTopicBarElement, ChannelEventTopics, message type helpers |
+| `@casehubio/agency-ui-commitment-viz` | blocks-ui | commitment-range-bar, commitment-state-pill, range-decorator |
+| `@casehubio/agency-ui-core` | blocks-ui | emitPagesEvent, isTerminalCommitmentState |
 | `@casehubio/pages-runtime` | pages | loadSite, registerPanel, createLocalLayoutStore |
 | `@casehubio/pages-ui` | pages | hostPanel |
 | `@casehubio/pages-ui-tokens` | pages | injectTheme, applyThemeMode, DEFAULT_THEME |
@@ -231,7 +231,7 @@ The app is accessible at `http://localhost:8090`. The login overlay prompts for 
 
 - Does not define the qhorus Channel/Message/Topic SPIs -- those are in `casehub-qhorus-api`
 - Does not provide the qhorus runtime persistence -- that is `casehub-qhorus` (H2/JPA/Flyway)
-- Does not provide reusable UI components -- those are in `casehub-blocks-ui` (channel-activity, commitment-viz)
+- Does not provide reusable UI components -- those are in `casehub-agency-ui` (channel-activity, commitment-viz)
 - Does not provide production-grade persistence -- H2 in-memory is dev/demo only
 - Does not send outbound messages to external platforms -- that is the connectors' job
 - Does not implement the pages runtime or UI framework -- those are in `casehub-pages`

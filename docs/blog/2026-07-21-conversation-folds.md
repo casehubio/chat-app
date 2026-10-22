@@ -3,7 +3,7 @@ title: "Conversation Folds — Epistemic Ground and Convergence"
 date: 2026-07-21
 type: diary
 tags: [conversation, epistemic, convergence, fold, blocks]
-issue: "casehubio/blocks#65, casehubio/blocks#66"
+issue: "casehubio/agency#65, casehubio/agency#66"
 ---
 
 Multi-agent conversations accumulate assertions but nothing tracks what's

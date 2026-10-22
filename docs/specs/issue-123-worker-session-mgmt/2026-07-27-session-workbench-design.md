@@ -1,6 +1,6 @@
 # Session Workbench — blocks-ui Component Design
 
-**Issue:** casehubio/blocks-ui#97 (component), casehubio/devtown#123 (consumer)
+**Issue:** casehubio/agency-ui#97 (component), casehubio/devtown#123 (consumer)
 **Date:** 2026-07-27
 **Approach:** Flat composables with platform-standard data patterns
 
@@ -267,7 +267,7 @@ configure(props: { endpoint?: string }): void {
 
 Devtown's governance frontend adds a "Workers" tab with minimal code:
 
-1. **Dependency** — add `@casehubio/blocks-ui-session-workbench` to `app/src/main/webui/package.json`
+1. **Dependency** — add `@casehubio/agency-ui-session-workbench` to `app/src/main/webui/package.json`
 2. **Register** — `registerPanel('session-workbench', 'blocks-session-workbench')` in `index.ts`
 3. **Tab** — new "Workers" entry in `tabs()`, using `hostPanel` to mount with `endpoint: "/api/sessions"`
 4. **Proxy** — devtown proxies `/api/sessions/*` to claudony (unless co-deployed on same origin)
@@ -276,8 +276,8 @@ Devtown's governance frontend adds a "Workers" tab with minimal code:
 
 - casehubio/engine#786 — bulk worker/flow instance state query API (future: enables fleet-level worker views beyond claudony sessions)
 - casehubio/claudony#TBD — server-side restart endpoint (`POST /api/sessions/{id}/restart`) for atomic restart
-- casehubio/blocks-ui#TBD — terminal interaction (sendInput, resize, openTerminal) for session-detail
-- casehubio/blocks-ui#TBD — worker lineage tab for session-detail (depends on verifying `WorkerSummary` type from engine API)
+- casehubio/agency-ui#TBD — terminal interaction (sendInput, resize, openTerminal) for session-detail
+- casehubio/agency-ui#TBD — worker lineage tab for session-detail (depends on verifying `WorkerSummary` type from engine API)
 
 ## Testing Strategy
 

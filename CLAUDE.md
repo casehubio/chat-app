@@ -42,7 +42,7 @@ Before any git operation, run `git rev-parse --show-toplevel` to confirm which r
 These are sibling repos at their canonical checkouts. **Never commit to canonical checkouts from a chat-app session.** Cross-repo slot copies (e.g. `slots/194/casehub-mosaic`) are fine — that's what slots are for.
 - casehub-parent, casehub-platform, casehub-worker, casehub-ledger, casehub-work
 - casehub-qhorus, casehub-connectors, casehub-iot, casehub-ras, casehub-desiredstate
-- casehub-blocks, casehub-casehub-mosaic, casehub-engine, casehub-pages
+- casehub-agency, casehub-casehub-mosaic, casehub-engine, casehub-pages
 - claudony, casehub-openclaw, casehub-workers, casehub-ops
 - casehub-eidos, casehub-neocortex
 - casehub-aml, casehub-clinical, casehub-life, casehub-drafthouse
