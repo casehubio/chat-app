@@ -62,25 +62,25 @@ describe('QhorusWorkbenchElement', () => {
 
   it('renders channel nav component', () => {
     const shadow = element.shadowRoot!;
-    const nav = shadow.querySelector('blocks-channel-nav');
+    const nav = shadow.querySelector('agency-channel-nav');
     expect(nav).toBeTruthy();
   });
 
   it('renders channel feed component', () => {
     const shadow = element.shadowRoot!;
-    const feed = shadow.querySelector('blocks-channel-feed');
+    const feed = shadow.querySelector('agency-channel-feed');
     expect(feed).toBeTruthy();
   });
 
   it('renders message input component', () => {
     const shadow = element.shadowRoot!;
-    const input = shadow.querySelector('blocks-channel-input');
+    const input = shadow.querySelector('agency-channel-input');
     expect(input).toBeTruthy();
   });
 
   it('renders member panel component', () => {
     const shadow = element.shadowRoot!;
-    const panel = shadow.querySelector('blocks-channel-member-panel');
+    const panel = shadow.querySelector('agency-channel-member-panel');
     expect(panel).toBeTruthy();
   });
 
@@ -112,7 +112,7 @@ describe('QhorusWorkbenchElement', () => {
     element.requestUpdate();
     await element.updateComplete;
 
-    const feed = element.shadowRoot!.querySelector('blocks-channel-feed');
+    const feed = element.shadowRoot!.querySelector('agency-channel-feed');
     const messages = feed.messages as QhorusMessage[];
     expect(messages.length).toBe(1);
     expect(messages[0].channelId).toBe('ch-1');
@@ -130,7 +130,7 @@ describe('QhorusWorkbenchElement', () => {
     element.requestUpdate();
     await element.updateComplete;
 
-    const panel = element.shadowRoot!.querySelector('blocks-channel-member-panel');
+    const panel = element.shadowRoot!.querySelector('agency-channel-member-panel');
     const members = panel.members as ChannelMember[];
     expect(members.length).toBe(1);
     expect(members[0].channelId).toBe('ch-1');
@@ -502,7 +502,7 @@ describe('QhorusWorkbenchElement', () => {
     element.requestUpdate();
     await element.updateComplete;
 
-    const feed = element.shadowRoot!.querySelector('blocks-channel-feed');
+    const feed = element.shadowRoot!.querySelector('agency-channel-feed');
     const reactions = feed.reactions as Reaction[];
     expect(reactions.length).toBe(1);
     expect(reactions[0].messageId).toBe('msg-1');
@@ -694,7 +694,7 @@ describe('QhorusWorkbenchElement', () => {
       element.requestUpdate();
       await element.updateComplete;
 
-      const topicBar = element.shadowRoot!.querySelector('blocks-channel-topic-bar');
+      const topicBar = element.shadowRoot!.querySelector('agency-channel-topic-bar');
       expect(topicBar).toBeTruthy();
       expect(topicBar.topics.length).toBe(2);
     });
@@ -712,7 +712,7 @@ describe('QhorusWorkbenchElement', () => {
       element.requestUpdate();
       await element.updateComplete;
 
-      const topicBar = element.shadowRoot!.querySelector('blocks-channel-topic-bar');
+      const topicBar = element.shadowRoot!.querySelector('agency-channel-topic-bar');
       expect(topicBar).toBeNull();
     });
 
@@ -733,7 +733,7 @@ describe('QhorusWorkbenchElement', () => {
       element.requestUpdate();
       await element.updateComplete;
 
-      const feed = element.shadowRoot!.querySelector('blocks-channel-feed');
+      const feed = element.shadowRoot!.querySelector('agency-channel-feed');
       expect(feed.messages.length).toBe(1);
       expect(feed.messages[0].content).toBe('Design msg');
     });
@@ -755,7 +755,7 @@ describe('QhorusWorkbenchElement', () => {
       element.requestUpdate();
       await element.updateComplete;
 
-      const feed = element.shadowRoot!.querySelector('blocks-channel-feed');
+      const feed = element.shadowRoot!.querySelector('agency-channel-feed');
       expect(feed.messages.length).toBe(2);
     });
 
@@ -806,8 +806,8 @@ describe('QhorusWorkbenchElement', () => {
       element.requestUpdate();
       await element.updateComplete;
 
-      const topicBar = element.shadowRoot!.querySelector('blocks-channel-topic-bar');
-      const feed = element.shadowRoot!.querySelector('blocks-channel-feed');
+      const topicBar = element.shadowRoot!.querySelector('agency-channel-topic-bar');
+      const feed = element.shadowRoot!.querySelector('agency-channel-feed');
       expect(topicBar.viewMode).toBe('topics');
       expect(feed.viewMode).toBe('topics');
     });
@@ -828,7 +828,7 @@ describe('QhorusWorkbenchElement', () => {
       element.requestUpdate();
       await element.updateComplete;
 
-      const feed = element.shadowRoot!.querySelector('blocks-channel-feed');
+      const feed = element.shadowRoot!.querySelector('agency-channel-feed');
       expect(feed.topics.length).toBe(2);
       expect(feed.topics.find((t: any) => t.name === 'Design').state).toBe('ACTIVE');
       expect(feed.topics.find((t: any) => t.name === 'Impl').state).toBe('RESOLVED');
@@ -875,7 +875,7 @@ describe('QhorusWorkbenchElement', () => {
       element.requestUpdate();
       await element.updateComplete;
 
-      const feed = element.shadowRoot!.querySelector('blocks-channel-feed');
+      const feed = element.shadowRoot!.querySelector('agency-channel-feed');
       const reactions = feed.reactions as Reaction[];
       const thumbs = reactions.filter((r: any) => r.emoji === '👍');
       const hearts = reactions.filter((r: any) => r.emoji === '❤️');
@@ -900,7 +900,7 @@ describe('QhorusWorkbenchElement', () => {
       element.requestUpdate();
       await element.updateComplete;
 
-      let feed = element.shadowRoot!.querySelector('blocks-channel-feed');
+      let feed = element.shadowRoot!.querySelector('agency-channel-feed');
       expect((feed.reactions as Reaction[]).length).toBe(1);
 
       element._push.applyOp({
@@ -910,7 +910,7 @@ describe('QhorusWorkbenchElement', () => {
       element.requestUpdate();
       await element.updateComplete;
 
-      feed = element.shadowRoot!.querySelector('blocks-channel-feed');
+      feed = element.shadowRoot!.querySelector('agency-channel-feed');
       expect((feed.reactions as Reaction[]).length).toBe(2);
     });
 
@@ -931,7 +931,7 @@ describe('QhorusWorkbenchElement', () => {
       element.requestUpdate();
       await element.updateComplete;
 
-      const feed = element.shadowRoot!.querySelector('blocks-channel-feed');
+      const feed = element.shadowRoot!.querySelector('agency-channel-feed');
       const reactions = feed.reactions as Reaction[];
       const emojis = new Set(reactions.map((r: any) => r.emoji));
       expect(emojis.size).toBe(3);
@@ -942,25 +942,25 @@ describe('QhorusWorkbenchElement', () => {
   });
 
   describe('layout structure', () => {
-    it('blocks-channel-feed fills available space in main panel', async () => {
+    it('agency-channel-feed fills available space in main panel', async () => {
       const el = await renderWorkbench();
       const styles = (el.constructor as any).styles;
       const cssText = Array.isArray(styles) ? styles.map((s: any) => s.cssText).join('\n') : styles.cssText;
-      expect(cssText).toContain('blocks-channel-feed');
-      expect(cssText).toMatch(/blocks-channel-feed[^}]*flex:\s*1/);
-      expect(cssText).toMatch(/blocks-channel-feed[^}]*min-height:\s*0/);
+      expect(cssText).toContain('agency-channel-feed');
+      expect(cssText).toMatch(/agency-channel-feed[^}]*flex:\s*1/);
+      expect(cssText).toMatch(/agency-channel-feed[^}]*min-height:\s*0/);
     });
 
     it('message-input is pinned to bottom', async () => {
       const el = await renderWorkbench();
       const styles = (el.constructor as any).styles;
       const cssText = Array.isArray(styles) ? styles.map((s: any) => s.cssText).join('\n') : styles.cssText;
-      expect(cssText).toContain('blocks-channel-input');
-      expect(cssText).toMatch(/blocks-channel-input[^}]*flex-shrink:\s*0/);
+      expect(cssText).toContain('agency-channel-input');
+      expect(cssText).toMatch(/agency-channel-input[^}]*flex-shrink:\s*0/);
     });
   });
 
-  it('passes renderContent callback to blocks-channel-feed for commitment range bars', async () => {
+  it('passes renderContent callback to agency-channel-feed for commitment range bars', async () => {
     element._push.applyOp({
       op: 'snapshot', dataset: 'messages',
       rows: [['ch-1', 'msg-1', null, 'alice', 'Do this', '2026-01-01T00:00:00Z', 'COMMAND', 'AGENT', '', 'corr-1', '[]', 'bob']],
@@ -973,7 +973,7 @@ describe('QhorusWorkbenchElement', () => {
     element.requestUpdate();
     await element.updateComplete;
 
-    const feed = element.shadowRoot!.querySelector('blocks-channel-feed');
+    const feed = element.shadowRoot!.querySelector('agency-channel-feed');
     expect(feed.renderContent).toBeTypeOf('function');
   });
 
@@ -1048,7 +1048,7 @@ describe('QhorusWorkbenchElement', () => {
   it('passes currentActorId to channel feed', async () => {
     const el = await renderWorkbench();
     await el.updateComplete;
-    const feed = el.shadowRoot!.querySelector('blocks-channel-feed') as any;
+    const feed = el.shadowRoot!.querySelector('agency-channel-feed') as any;
     expect(feed?.currentActorId).toBeDefined();
   });
 });
