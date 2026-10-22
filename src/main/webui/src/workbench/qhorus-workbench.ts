@@ -578,18 +578,18 @@ export class QhorusWorkbenchElement extends LitElement {
 
   private _renderNav() {
     return html`
-      <blocks-channel-nav
+      <agency-channel-nav
         .channelTree=${this._channels.channelTree}
         .selectedChannelId=${this._channels.selectedChannelId}>
-      </blocks-channel-nav>
+      </agency-channel-nav>
     `;
   }
 
   private _renderMembers() {
-    return html`<blocks-channel-member-panel
+    return html`<agency-channel-member-panel
       .members=${this._members.filteredMembers()}
       .presence=${this._members.presence}>
-    </blocks-channel-member-panel>`;
+    </agency-channel-member-panel>`;
   }
 
   private _renderConnectionBanner() {
@@ -614,13 +614,13 @@ export class QhorusWorkbenchElement extends LitElement {
     return html`
       ${this._renderConnectionBanner()}
       ${showTopics ? html`
-        <blocks-channel-topic-bar
+        <agency-channel-topic-bar
           .topics=${channelTopics}
           .selectedTopicId=${this._channels.selectedTopicId}
           .viewMode=${this._channels.viewMode}>
-        </blocks-channel-topic-bar>
+        </agency-channel-topic-bar>
       ` : nothing}
-      <blocks-channel-feed
+      <agency-channel-feed
         .messages=${this._channels.filteredMessages()}
         .reactions=${this._reactions.filteredReactions()}
         .eventStyling=${false}
@@ -631,15 +631,15 @@ export class QhorusWorkbenchElement extends LitElement {
         .renderContent=${this._renderCommitmentBar}
         .messageHighlights=${this._computeHighlights()}
         .currentActorId=${getIdentity() ?? ''}>
-      </blocks-channel-feed>
-      <blocks-channel-input
+      </agency-channel-feed>
+      <agency-channel-input
         .channelId=${this._channels.selectedChannelId}
         .replyTo=${this._messaging.replyTo}
         .showTopicSelector=${showTopics}
         .topic=${currentTopic?.name ?? 'General'}
         .topicId=${currentTopic?.id ?? ''}
         .topics=${channelTopics}>
-      </blocks-channel-input>
+      </agency-channel-input>
     `;
   }
 
@@ -669,14 +669,14 @@ export class QhorusWorkbenchElement extends LitElement {
     switch (panelId) {
       case 'nav': return this._renderNav();
       case 'members': return this._renderMembers();
-      case 'tasks': return html`<blocks-channel-task-panel
+      case 'tasks': return html`<agency-channel-task-panel
         .messages=${this._channels.filteredMessages()}
         .commitments=${this._commitments.commitments}
-        .selectedMessageId=${this._commitments.selectedMessageId}></blocks-channel-task-panel>`;
-      case 'correlation': return html`<blocks-channel-correlation-panel
+        .selectedMessageId=${this._commitments.selectedMessageId}></agency-channel-task-panel>`;
+      case 'correlation': return html`<agency-channel-correlation-panel
         .messages=${this._channels.filteredMessages()}
         .commitments=${this._commitments.commitments}
-        .selectedMessageId=${this._commitments.selectedMessageId}></blocks-channel-correlation-panel>`;
+        .selectedMessageId=${this._commitments.selectedMessageId}></agency-channel-correlation-panel>`;
       case 'artifacts': return html`<qhorus-artifact-panel
         .selectedArtefactRef=${this._selectedArtefactRef}></qhorus-artifact-panel>`;
       case 'settings': return this._renderSettings();
