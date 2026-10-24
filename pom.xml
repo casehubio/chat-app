@@ -227,6 +227,8 @@ REST/WebSocket endpoints, and casehub-pages frontend.</description>
     <repository>
       <id>github</id>
       <url>https://maven.pkg.github.com/casehubio/*</url>
+      <releases><enabled>false</enabled></releases>
+
       <snapshots><enabled>true</enabled></snapshots>
     </repository>
   </repositories>
