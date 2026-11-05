@@ -20,7 +20,7 @@ I dug into their implementation. It's React 19 + React Flow + ELK.js for hierarc
 
 ## The tech stack question
 
-Here's where it got interesting. CaseHub's entire frontend — Pages, blocks-ui, the design token system, the component model — is Lit 3.x Web Components. No React anywhere. So using React Flow means introducing React into a Lit app.
+Here's where it got interesting. CaseHub's entire frontend — Pages, mosaic, the design token system, the component model — is Lit 3.x Web Components. No React anywhere. So using React Flow means introducing React into a Lit app.
 
 I explored every alternative. Cytoscape.js looked promising until I hit the wall: no public API for custom canvas-drawn nodes. The `cytoscape-layers` plugin offers an overlay workaround, but you're drawing decorations on top of invisible base nodes — interaction and visuals decoupled. For a stencil-driven editor where each work type has its own visual identity, that's a dead end.
 
@@ -50,9 +50,9 @@ Work stencils are different. They're the leaf vocabulary — what a Primitive ac
 
 ## What's bootstrapped
 
-The foundation is split across two repos. Pages gets the domain-agnostic graph infrastructure: `graph-core` (model, stencil registry, constraint validation, persistence SPI), `graph-renderer` (React Flow bridge, ELK layout), and `graph-work-registry` (marketplace discovery). blocks-ui gets the CaseHub-specific packages: `graph-stencil-case` (Case domain adapter, structural stencils) and `graph-stencil-swf` (SWF drill-down via `@openworkflowspec/sdk`).
+The foundation is split across two repos. Pages gets the domain-agnostic graph infrastructure: `graph-core` (model, stencil registry, constraint validation, persistence SPI), `graph-renderer` (React Flow bridge, ELK layout), and `graph-work-registry` (marketplace discovery). mosaic gets the CaseHub-specific packages: `graph-stencil-case` (Case domain adapter, structural stencils) and `graph-stencil-swf` (SWF drill-down via `@openworkflowspec/sdk`).
 
-The core TypeScript interfaces are written. `GraphModel`, `StencilDescriptor`, `StencilGrammar`, `PersistenceBackend` with optimistic concurrency, `DomainAdapter` with the `toGraph`/`applyEdit` contract, `GraphEdit` operations. Placeholder adapters implement the contracts. The package structure follows existing Pages and blocks-ui conventions exactly.
+The core TypeScript interfaces are written. `GraphModel`, `StencilDescriptor`, `StencilGrammar`, `PersistenceBackend` with optimistic concurrency, `DomainAdapter` with the `toGraph`/`applyEdit` contract, `GraphEdit` operations. Placeholder adapters implement the contracts. The package structure follows existing Pages and mosaic conventions exactly.
 
 ## What's next
 
