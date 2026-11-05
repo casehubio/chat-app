@@ -117,7 +117,7 @@ The second mode isn't a separate view — it's a decoration layer over the same 
 
 CaseHub's `TaskStatus` has nine states: PENDING, RUNNING, DELEGATED, COMPLETED, FAULTED, REJECTED, OBSOLETE, CANCELLED, SUSPENDED. Each gets a distinct visual treatment — a green pulse for RUNNING, a checkmark for COMPLETED, red for FAULTED. Milestones carry their own lifecycle: PENDING, ACTIVE, COMPLETED, FAILED, CANCELLED.
 
-The interesting part is the aggregation problem. One binding can produce multiple PlanItems at runtime — a `validate-document` binding might fire three times for three documents. The overlay badge shows the aggregate: if two are COMPLETED and one is RUNNING, the binding shows RUNNING with a "2/3" indicator. The engine's existing `PushSource` abstraction pushes state updates to the browser via SSE — the overlay subscribes like any other blocks-ui data source.
+The interesting part is the aggregation problem. One binding can produce multiple PlanItems at runtime — a `validate-document` binding might fire three times for three documents. The overlay badge shows the aggregate: if two are COMPLETED and one is RUNNING, the binding shows RUNNING with a "2/3" indicator. The engine's existing `PushSource` abstraction pushes state updates to the browser via SSE — the overlay subscribes like any other mosaic data source.
 
 Layering on heatmaps is where it gets useful for operations. Colour-code bindings by execution frequency over a time window. Cold paths are grey. Hot paths are vivid. Now you can see where the work concentrates, which bindings fire constantly, which milestones take the longest to achieve. Same graph, same layout, different data lens.
 
@@ -125,7 +125,7 @@ Layering on heatmaps is where it gets useful for operations. Colour-code binding
 
 ## Technology: React Flow in a Lit world
 
-CaseHub's entire frontend is Lit 3.x Web Components — Pages (the component framework), blocks-ui (the domain components), and a design token system built on OKLCH colour scales. There is no React anywhere in the stack.
+CaseHub's entire frontend is Lit 3.x Web Components — Pages (the component framework), mosaic (the domain components), and a design token system built on OKLCH colour scales. There is no React anywhere in the stack.
 
 The visual editor needs React Flow.
 
@@ -158,14 +158,14 @@ Backends can be git (read/write at a GitHub URL), the local filesystem via Elect
 
 ## The architecture
 
-The package structure splits cleanly between foundation (domain-agnostic, in Pages) and domain (CaseHub-specific, in blocks-ui):
+The package structure splits cleanly between foundation (domain-agnostic, in Pages) and domain (CaseHub-specific, in mosaic):
 
 **Pages** provides the graph infrastructure:
 - `graph-core` — the graph model, stencil registry, constraint validation engine, persistence SPI, edit operations
 - `graph-renderer` — React Flow bridge, ELK hierarchical auto-layout, stencil-to-node mapping
 - `graph-work-registry` — marketplace YAML loader, work stencil discovery, category indexing
 
-**blocks-ui** provides the CaseHub domain layer:
+**mosaic** provides the CaseHub domain layer:
 - `graph-stencil-case` — Case domain adapter (YAML ↔ graph), structural stencils, runtime overlay adapter
 - `graph-stencil-swf` — SWF domain adapter (via `@openworkflowspec/sdk`), workflow step stencils, drill-down
 - `casehub-diagram` — the assembled Lit component: canvas, palette, properties panel, toolbar
