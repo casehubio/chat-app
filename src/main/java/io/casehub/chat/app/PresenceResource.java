@@ -14,9 +14,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
-
-import java.util.Map;
 
 @Path("/api/presence")
 @io.casehub.platform.api.mcp.HandWrittenEndpoint("Direct presence tracking, not suitable for McpDomain generation")
@@ -35,24 +32,27 @@ public class PresenceResource {
 
     @GET
     @Path("/{memberId}")
-    public Map<String, String> getPresence(@PathParam("memberId") String memberId) {
+    public PresenceView getPresence(@PathParam("memberId") String memberId) {
         var p = presence.getPresence(memberId);
-        return Map.of("memberId", memberId, "status", p.status().name());
+        return new PresenceView(memberId, p.status().name());
     }
 
     @PUT
     @Path("/{memberId}")
-    public Response setPresence(@PathParam("memberId") String memberId,
-                                SetPresenceRequest request) {
+    public PresenceView setPresence(@PathParam("memberId") String memberId,
+                                    SetPresenceRequest request) {
         try {
             var status = PresenceStatus.valueOf(request.status());
             presence.heartbeat(status, null);
             broadcaster.broadcastPresenceReplace(memberId, status);
+            return new PresenceView(memberId, status.name());
         } catch (IllegalArgumentException e) {
             throw new jakarta.ws.rs.BadRequestException("Invalid status: " + request.status());
         }
-        return Response.ok().build();
     }
+
+
+    public record PresenceView(String memberId, String status) {}
 
     public record SetPresenceRequest(String status) {}
 }

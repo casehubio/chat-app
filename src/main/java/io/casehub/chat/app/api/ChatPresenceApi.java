@@ -9,24 +9,23 @@ import io.casehub.platform.api.mcp.RestPath;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import java.util.Map;
-
 @McpDomain(value = "chat/presence", app = "chat-app", basePath = "/api/chat/presence", summary = "Get presence status for a member; Set presence status for a member")
 @ApplicationScoped
 public class ChatPresenceApi {
 
-    @Inject PresenceResource resource;
+    @Inject
+    PresenceResource resource;
 
-    @PlatformQuery("Get presence status for a member")
+    @PlatformQuery("Get presence status for a member. Returns: memberId, status (ONLINE, AVAILABLE, BUSY, AWAY, OFFLINE)")
     @RestPath("/{memberId}")
-    public Map<String, String> getPresence(@PathParam String memberId) {
+    public PresenceResource.PresenceView getPresence(@PathParam String memberId) {
         return resource.getPresence(memberId);
     }
 
-    @PlatformMutation("Set presence status for a member")
+    @PlatformMutation("Set presence status for a member. Valid status values: ONLINE, AVAILABLE, BUSY, AWAY, OFFLINE")
     @RestPath("/{memberId}")
-    public Object setPresence(@PathParam String memberId,
-                               PresenceResource.SetPresenceRequest request) {
-        return resource.setPresence(memberId, request).getEntity();
+    public PresenceResource.PresenceView setPresence(@PathParam String memberId,
+                                                     PresenceResource.SetPresenceRequest request) {
+        return resource.setPresence(memberId, request);
     }
 }

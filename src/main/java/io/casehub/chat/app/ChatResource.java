@@ -8,6 +8,7 @@ import io.casehub.qhorus.api.channel.PresenceStatus;
 import io.casehub.qhorus.api.channel.PresenceTracker;
 import io.casehub.qhorus.api.message.ArtefactRef;
 import io.casehub.qhorus.api.message.ConsumerMessaging;
+import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
@@ -45,21 +46,21 @@ import java.util.UUID;
 public class ChatResource {
 
     @Inject
-    ConsumerMessaging          messaging;
+    ConsumerMessaging                              messaging;
     @Inject
-    PresenceTracker            presence;
+    PresenceTracker                                presence;
     @Inject
-    MembershipManager          members;
+    MembershipManager                              members;
     @Inject
-    MembershipReader           memberReader;
+    MembershipReader                               memberReader;
     @Inject
-    TopicReader                topicReader;
+    TopicReader                                    topicReader;
     @Inject
-    QhorusWebSocketBroadcasterCore broadcaster;
+    QhorusWebSocketBroadcasterCore                 broadcaster;
     @Inject
-    CurrentPrincipal           currentPrincipal;
+    CurrentPrincipal                               currentPrincipal;
     @Inject
-    ObjectMapper               objectMapper;
+    ObjectMapper                                   objectMapper;
     @Inject
     io.casehub.qhorus.runtime.channel.SpaceService spaceService;
 
@@ -70,6 +71,15 @@ public class ChatResource {
     @Path("/{channelId}/messages")
     public Response postMessage(@PathParam("channelId") String channelId,
                                 PostMessageRequest request) {
+        var result   = dispatchMessage(channelId, request);
+        var response = new java.util.LinkedHashMap<String, Object>();
+        response.put("ok", true);
+        response.put("messageId", result.messageId());
+        if (result.correlationId() != null) {response.put("correlationId", result.correlationId());}
+        return Response.ok(response).build();
+    }
+
+    public DispatchResult dispatchMessage(String channelId, PostMessageRequest request) {
         var channelUuid = UUID.fromString(channelId);
         var sender      = currentPrincipal.actorId();
         ensureMembership(channelUuid, sender);
@@ -94,13 +104,9 @@ public class ChatResource {
                                       .topic(topicName)
                                       .build();
 
-        var result   = messaging.dispatch(dispatch);
-        var response = new java.util.LinkedHashMap<String, Object>();
-        response.put("ok", true);
-        response.put("messageId", result.messageId());
-        if (result.correlationId() != null) {response.put("correlationId", result.correlationId());}
-        return Response.ok(response).build();
+        return messaging.dispatch(dispatch);
     }
+
 
     @GET
     @Path("/{channelId}/messages")
@@ -125,6 +131,13 @@ public class ChatResource {
     public Response postReply(@PathParam("channelId") String channelId,
                               @PathParam("messageId") String messageId,
                               PostMessageRequest request) {
+        var result = dispatchReply(channelId, messageId, request);
+        return Response.ok(Map.of(
+                "ok", true,
+                "messageId", result.messageId())).build();
+    }
+
+    public DispatchResult dispatchReply(String channelId, String messageId, PostMessageRequest request) {
         var channelUuid = UUID.fromString(channelId);
         var parentId    = Long.parseLong(messageId);
         var sender      = currentPrincipal.actorId();
@@ -155,22 +168,20 @@ public class ChatResource {
                                       .topic(topicName)
                                       .build();
 
-        var result = messaging.dispatch(dispatch);
-        return Response.ok(Map.of(
-                "ok", true,
-                "messageId", result.messageId())).build();
+        return messaging.dispatch(dispatch);
     }
+
 
     // --- Read tracking ---
 
     @PUT
     @Path("/{channelId}/read")
-    public Response markRead(@PathParam("channelId") String channelId,
-                             MarkReadRequest request) {
+    public ReadMarkerView markRead(@PathParam("channelId") String channelId,
+                                   MarkReadRequest request) {
         var channelUuid = UUID.fromString(channelId);
         var memberId    = currentPrincipal.actorId();
         members.updateLastReadMessageId(channelUuid, memberId, request.lastReadMessageId());
-        return Response.ok().build();
+        return new ReadMarkerView(channelId, request.lastReadMessageId());
     }
 
     // --- Private helpers ---
@@ -178,16 +189,12 @@ public class ChatResource {
 
     @PUT
     @Path("/channels/{channelId}/space")
-    public Response moveChannelToSpace(@PathParam("channelId") String channelId,
-                                       MoveToSpaceRequest request) {
-        try {
-            var channelUuid = UUID.fromString(channelId);
-            var spaceUuid   = request.spaceId() != null ? UUID.fromString(request.spaceId()) : null;
-            var updated     = spaceService.moveChannelToSpace(channelUuid, spaceUuid, request.position());
-            return Response.ok(Map.of("ok", true, "channelId", updated.id().toString())).build();
-        } catch (IllegalArgumentException e) {
-            return Response.status(400).entity(Map.of("error", e.getMessage())).build();
-        }
+    public ChannelMoveView moveChannelToSpace(@PathParam("channelId") String channelId,
+                                              MoveToSpaceRequest request) {
+        var channelUuid = UUID.fromString(channelId);
+        var spaceUuid   = request.spaceId() != null ? UUID.fromString(request.spaceId()) : null;
+        var updated     = spaceService.moveChannelToSpace(channelUuid, spaceUuid, request.position());
+        return new ChannelMoveView(updated.id().toString());
     }
 
     private void ensureMembership(UUID channelId, String memberId) {
@@ -232,6 +239,12 @@ public class ChatResource {
     }
 
     // --- Request DTOs ---
+
+
+    public record ReadMarkerView(String channelId, Long lastReadMessageId) {}
+
+    public record ChannelMoveView(String channelId) {}
+
 
     public record PostMessageRequest(String text, String messageType, String actorType,
                                      String target, List<Map<String, Object>> artefactRefs,
