@@ -1,12 +1,12 @@
 package io.casehub.chat.app.api;
 
 import io.casehub.chat.app.ChatResource;
-import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.platform.api.mcp.McpDomain;
 import io.casehub.platform.api.mcp.PathParam;
 import io.casehub.platform.api.mcp.PlatformMutation;
 import io.casehub.platform.api.mcp.PlatformQuery;
 import io.casehub.platform.api.mcp.RestPath;
+import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.Message;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -34,6 +34,13 @@ public class ChatMessageApi {
                                       @QueryParam("since") String since) {
         return resource.listMessages(channelId, since);
     }
+
+    @PlatformQuery("Get unread messages in a channel — returns messages after the caller's last read marker (set by markRead). Zero-config alternative to listMessages(since)")
+    @RestPath("/{channelId}/new")
+    public List<Message> newMessages(@PathParam String channelId) {
+        return resource.getNewMessages(channelId);
+    }
+
 
     @PlatformMutation("Reply to a message in a channel. Inherits the parent message's topic and correlation ID")
     @RestPath("/{channelId}/{messageId}/replies")

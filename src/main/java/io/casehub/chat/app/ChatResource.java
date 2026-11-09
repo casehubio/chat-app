@@ -1,6 +1,5 @@
 package io.casehub.chat.app;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.qhorus.api.channel.MembershipManager;
@@ -121,6 +120,19 @@ public class ChatResource {
         }
         return messaging.history(channelUuid, afterId, 10000);
     }
+
+    public List<Message> getNewMessages(String channelId) {
+        var    channelUuid = UUID.fromString(channelId);
+        String memberId    = currentPrincipal.actorId();
+        ensureMembership(channelUuid, memberId);
+        long afterId = members.listMembers(channelUuid).stream()
+                              .filter(m -> memberId.equals(m.memberId()))
+                              .map(m -> m.lastReadMessageId() != null ? m.lastReadMessageId() : 0L)
+                              .findFirst()
+                              .orElse(0L);
+        return messaging.history(channelUuid, afterId, 10000);
+    }
+
 
     // --- Replies ---
 
