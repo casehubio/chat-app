@@ -60,8 +60,6 @@ public class ChatResource {
     @Inject
     CurrentPrincipal                               currentPrincipal;
     @Inject
-    ObjectMapper                                   objectMapper;
-    @Inject
     io.casehub.qhorus.runtime.channel.SpaceService spaceService;
 
 
@@ -88,7 +86,7 @@ public class ChatResource {
         var msgType = request.messageType() != null ? request.messageType() : "QUERY";
         var actType = request.actorType() != null ? request.actorType() : "HUMAN";
 
-        List<ArtefactRef> artefactRefs  = parseArtefactRefs(request.artefactRefs());
+        List<ArtefactRef> artefactRefs  = request.artefactRefs() != null ? request.artefactRefs() : List.of();
         String            topicName     = resolveTopicName(channelUuid, request.topicId(), request.topic());
         String            correlationId = "COMMAND".equals(msgType) ? UUID.randomUUID().toString() : null;
 
@@ -152,7 +150,7 @@ public class ChatResource {
         var msgType = request.messageType() != null ? request.messageType() : "QUERY";
         var actType = request.actorType() != null ? request.actorType() : "HUMAN";
 
-        List<ArtefactRef> artefactRefs = parseArtefactRefs(request.artefactRefs());
+        List<ArtefactRef> artefactRefs = request.artefactRefs() != null ? request.artefactRefs() : List.of();
         String            topicName    = parent.topic() != null ? parent.topic() : "";
 
         var dispatch = MessageDispatch.builder()
@@ -225,19 +223,6 @@ public class ChatResource {
         return "general";
     }
 
-    private List<ArtefactRef> parseArtefactRefs(List<Map<String, Object>> raw) {
-        if (raw == null || raw.isEmpty()) {
-            return List.of();
-        }
-        try {
-            var json = objectMapper.writeValueAsString(raw);
-            return objectMapper.readValue(json, objectMapper.getTypeFactory()
-                                                            .constructCollectionType(List.class, ArtefactRef.class));
-        } catch (Exception e) {
-            return List.of();
-        }
-    }
-
     // --- Request DTOs ---
 
 
@@ -247,7 +232,7 @@ public class ChatResource {
 
 
     public record PostMessageRequest(String text, String messageType, String actorType,
-                                     String target, List<Map<String, Object>> artefactRefs,
+                                     String target, List<ArtefactRef> artefactRefs,
                                      String topic, String topicId) {}
 
     public record MarkReadRequest(Long lastReadMessageId) {}
