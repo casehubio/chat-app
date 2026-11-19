@@ -6,6 +6,8 @@ subtype: pivot
 project: casehub-chat-app
 tags: [qhorus, api-design, architecture, composability]
 status: draft
+entry_type: note
+projects: [casehubio/chat-app]
 ---
 
 # The Composable API That Wasn't
