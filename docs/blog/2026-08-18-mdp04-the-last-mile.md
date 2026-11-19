@@ -5,6 +5,9 @@ series: channel-consolidation
 entry: 4
 issue: 33
 tags: [integration, verification, push-protocol, esbuild, seed-data]
+entry_type: note
+subtype: diary
+projects: [casehubio/chat-app]
 ---
 
 # The last mile
